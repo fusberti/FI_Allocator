@@ -1,0 +1,10 @@
+"INSTANCE <filename.switch>" line.switch
+"OBJECTIVE <ENS,SAIDI,COST>" ENS
+"COST OF ENERGY ($/KWh) <double [0,INF]>" 1.53
+"COST OF SWITCH ($/year) <double [0,INF]>" 1358
+"BREAKER FAILRATE (fails/year) <double [0,1]>" 0
+"MAXIMUM NUMBER OF SWITCHES <integer [0,INF]>" 10
+"MAXIMUM INVESTMENT ($) <double [0,INF]>" INF
+"MAXIMUM SAIDI (hours/year/customer) <double [0,INF]>" INF
+"MAXIMUM ENS (KWh/year) <double [0,INF]>" INF
+"ALLOW POWER TRANSFER THROUGH TIE-LINES <boolean [TRUE,FALSE]>" FALSE
