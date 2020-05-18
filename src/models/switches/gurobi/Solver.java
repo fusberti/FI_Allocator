@@ -1,18 +1,5 @@
 package models.switches.gurobi;
 
-// Parametros do modelo
-// d_k : comprimento do arco k (km)
-// d_i : distancia da SE ate no i (km)
-// alpha : inverso da velocidade
-// ro : taxa de falha por km
-// P : qtd de sinalizadores +1
-
-
-import instances.Instance;
-import instances.networks.edges.E;
-import instances.networks.edges.E.SwitchType;
-import instances.networks.vertices.V;
-
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.FileNotFoundException;
@@ -25,13 +12,26 @@ import java.io.Writer;
 import java.util.Iterator;
 
 import edu.uci.ics.jung.graph.Graph;
-
 import gurobi.GRB;
 import gurobi.GRBEnv;
 import gurobi.GRBException;
 import gurobi.GRBLinExpr;
 import gurobi.GRBModel;
+import gurobi.GRBQuadExpr;
 import gurobi.GRBVar;
+
+// Parametros do modelo
+// d_k : comprimento do arco k (km)
+// d_i : distancia da SE ate no i (km)
+// alpha : inverso da velocidade
+// ro : taxa de falha por km
+// P : qtd de sinalizadores +1
+
+
+import instances.Instance;
+import instances.networks.edges.E;
+import instances.networks.edges.E.SwitchType;
+import instances.networks.vertices.V;
 
 public class Solver {
 
@@ -114,7 +114,7 @@ public class Solver {
 	}
 
 	// generate the quadractic objective function
-	private void generateOF(GRBModel model, GRBLinExpr ofexpr) {
+	private void generateOF(GRBModel model, GRBQuadExpr ofexpr) {
 		
 		for (int k=0; k <= inst.parameters.numFI; k++) {
 			Iterator<E> iterEdges = g.getEdges().iterator();
@@ -123,7 +123,7 @@ public class Solver {
 				Iterator<E> iterEdges2 = g.getEdges().iterator();
 				while (iterEdges2.hasNext()) {
 					E edge2 = iterEdges2.next();
-					double objvalsX = edge.dist * edge2.dist;
+					double objvalsX = edge.length * edge2.length;
 					ofexpr.addTerm(objvalsX, x[edge.id][k], x[edge2.id][k]);
 				}
 			}
@@ -136,7 +136,7 @@ public class Solver {
 	private void defineVarX(GRBModel model, int indVar, GRBLinExpr ofexpr) {
 
 		//variaveis tipo X 
-		x = new GRBVar[NUM_EDGES][inst.parameters.numFI+1];
+		x = new GRBVar[g.getEdges().size()][inst.parameters.numFI+1];
 
 		try {
 
