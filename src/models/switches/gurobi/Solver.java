@@ -158,52 +158,73 @@ public class Solver {
 
 	}
 	
-	//variaveis tipo Y -- y_i = 1 indica que na fronteira do no i existe um sinalizador
-	private void defineVarY(GRBModel model, int indVar, GRBLinExpr ofexpr) {
+	//variaveis tipo Y -- y_ij = 1 indica que na fronteira do no i existe um sinalizador
+		private void defineVarY(GRBModel model, int indVar, GRBLinExpr ofexpr) {
 
-		//variaveis tipo Y
-		y = new GRBVar[g.getVertexCount()];
+			//variaveis tipo Y
+			y = new GRBVar[g.getEdgeCount()];
 
-		try {
+			try {
 
-			Iterator<V> iterNodes = g.getVertices().iterator();
-			while (iterNodes.hasNext()) {
-				V node = iterNodes.next();
-				double objvalsY = 0.0f;
-				// fault indicator
-				double lbX = 0.0;
-				double ubX = 1.0;			
-				y[node.id] = model.addVar(lbX, ubX, 0.0f,tipoBinary,"y["+node.label+"]");
-				ofexpr.addTerm(objvalsY, y[node.id]);
-			}      
+				Iterator<E> iterEdges = g.getEdges().iterator();
+				while (iterEdges.hasNext()) {
+					E edge = iterEdges.next();
+					double objvalsY = 0.0f;
+					// fault indicator
+					double lb = 0.0;
+					double ub = 1.0;			
+					y[edge.id] = model.addVar(lb, ub, 0.0f,tipoBinary,"y["+edge.id+"]");
+					ofexpr.addTerm(objvalsY, y[edge.id]);
+				}      
 
-		} catch (GRBException e) {
-			System.out.println("Error code: " + e.getErrorCode() + ". " + e.getMessage());
-		}	
+			} catch (GRBException e) {
+				System.out.println("Error code: " + e.getErrorCode() + ". " + e.getMessage());
+			}	
 
-	}
+		}
 
-	//RESTRICAO (0): sum X = 1	
-	private void addConstraint0(GRBModel model) {
+		//variaveis tipo Z -- z_ij = 1 indica que na fronterira do no j existe um sinalizador
+		private void defineVarZ(GRBModel model, int indVar, GRBLinExpr ofexpr) {
 
-		try {	
+			//variaveis tipo Y
+			z = new GRBVar[g.getEdgeCount()];
 
-			Iterator<E> iterEdges = g.getEdges().iterator();
-			while (iterEdges.hasNext()) {
-				E edge = iterEdges.next();
-				GRBLinExpr constraint = new GRBLinExpr();
-				for (int p=0;p<this.inst.parameters.numFI;p++) {
-					constraint.addTerm(1, x[edge.idNoProt][p]);
-				}
-					
-				model.addConstr(constraint, GRB.EQUAL, inst.parameters.numFI, "c0");
+			try {
+
+				Iterator<E> iterEdges = g.getEdges().iterator();
+				while (iterEdges.hasNext()) {
+					E edge = iterEdges.next();
+					double objvalsY = 0.0f;
+					// fault indicator
+					double lb = 0.0;
+					double ub = 1.0;			
+					z[edge.id] = model.addVar(lb, ub, 0.0f,tipoBinary,"z["+edge.id+"]");
+					ofexpr.addTerm(objvalsY, z[edge.id]);
+				}      
+
+			} catch (GRBException e) {
+				System.out.println("Error code: " + e.getErrorCode() + ". " + e.getMessage());
+			}	
+
+		}
+
+		//RESTRICAO (0): sum x_ij = 1 \in k
+		private void addConstraint0(GRBModel model) {
+				try {	
+					Iterator<E> iterEdges = g.getEdges().iterator();
+					while (iterEdges.hasNext()) {
+						E edge = iterEdges.next();
+						GRBLinExpr constraint = new GRBLinExpr();
+						for (int k=0;k<=this.inst.parameters.numFI;k++) {
+							constraint.addTerm(1, x[edge.id][k]);
+						}	
+						model.addConstr(constraint, GRB.EQUAL, 1, "c0");
+					}
+
+				} catch (GRBException e) {
+					System.out.println("Error code: " + e.getErrorCode() + ". " + e.getMessage());
+				}	
 			}
-
-		} catch (GRBException e) {
-			System.out.println("Error code: " + e.getErrorCode() + ". " + e.getMessage());
-		}	
-
-	}
 
 	//RESTRICAO (1): fij >= theta_j + sum_{(j,k) \in A}(fjk) - Mxij (all (i,j) in E)	
 	private void addConstraint1(GRBModel model) {
