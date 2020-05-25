@@ -18,7 +18,7 @@ public class InstanceParameters {
 	private final String parametersFile = "parameters/parameters.txt";
 	// fault indicator
 	public double alpha, ro;
-	public int numFI;
+	private int numFI;
 	
 	public enum OBJECTIVES {ENS,SAIDI,COST};
 
@@ -64,12 +64,12 @@ public class InstanceParameters {
         	this.setProtFailRate(stok.nval);
 	        
         	
-	    	//collect the number of switches that will be installed on the network.
+	    	//collect the number of FIs that will be installed on the network.
 	    	this.collectField(stok);
 	        if (stok.sval == null)
-	        	this.setNumSwitches((int) stok.nval);
+	        	this.setNumFI((int) stok.nval);
 	        else
-	        	this.setNumSwitches(Integer.MAX_VALUE);
+	        	this.setNumFI(Integer.MAX_VALUE);
 
 	        
 	    	//collect the cost that can be invested in a solution. 
@@ -208,6 +208,14 @@ public class InstanceParameters {
 	public void setTransfer(boolean transfer) {
 		this.transfer = transfer;
 	}	
+	
+	/* number of fault indicartors */	
+	public int getNumFI() {
+		return numFI;
+	}
+	public void setNumFI(int numFI) {
+		this.numFI = numFI;
+	}
 	
 	public static void main(String[] args) {
 		

@@ -11,7 +11,7 @@ public class E {
 	public double fl;
 	public double p;
 	// fault indicator
-	public double length; // km
+	public double dist; // km
 	
 	public E(int id, V node1, V node2, boolean prot, int idProt, int idNoProt) {
 		this.id = id; // This is defined in the outer class.
@@ -34,6 +34,17 @@ public class E {
 		this.idProt = idProt; 
 		this.idNoProt = idNoProt; 
 		this.idGoodSec = -1; 
+	}	
+	
+	public E(int id, V node1, V node2, SwitchType status, int idProt, int idNoProt, int dist) {
+		this.id = id; // This is defined in the outer class.
+		this.node1 = node1;
+		this.node2 = node2;	
+		this.status = status;
+		this.idProt = idProt; 
+		this.idNoProt = idNoProt; 
+		this.idGoodSec = -1; 
+		this.dist = dist;
 	}	
 
 	public String toString() {

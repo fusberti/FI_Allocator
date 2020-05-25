@@ -1,3 +1,12 @@
+/*
+ * Modelo de alocação de sinalizadores para redes de distribuição de energia
+ * 
+ * Ideias para futuro: 
+ * - avaliar o impacto economico da alocação de sinalizadores, ou seja, a quantidade de sinalizadores
+ * passa a ser uma variável do modelo. 
+ * 
+ */
+
 package models.switches.gurobi;
 
 import java.io.BufferedReader;
@@ -127,7 +136,7 @@ public class Solver {
 				Iterator<E> iterEdges2 = g.getEdges().iterator();
 				while (iterEdges2.hasNext()) {
 					E edge2 = iterEdges2.next();
-					double objvalsX = edge.length * edge2.length;
+					double objvalsX = edge.dist * edge2.dist;
 					ofexpr.addTerm(objvalsX, x[edge.id][k], x[edge2.id][k]);
 				}
 			}
@@ -149,7 +158,7 @@ public class Solver {
 				double objvalsX = 0.0f;
 				double lbX = 0.0;
 				double ubX = 1.0;
-				for (int k = 0; k < inst.parameters.numFI; k++) {
+				for (int k = 0; k <= inst.parameters.numFI; k++) {
 					x[edge.id][k] = model.addVar(lbX, ubX, objvalsX, tipoBinary, "x[" + edge.id + "," + k + "]");
 					ofexpr.addTerm(objvalsX, x[edge.id][k]);
 				}
@@ -214,6 +223,7 @@ public class Solver {
 	}
 
 	// RESTRICAO (0): sum x_ij = 1 \in k
+	// Particao de arestas.
 	private void addConstraint0(GRBModel model) {
 		try {
 			Iterator<E> iterEdges = g.getEdges().iterator();
@@ -230,7 +240,7 @@ public class Solver {
 			System.out.println("Error code: " + e.getErrorCode() + ". " + e.getMessage());
 		}
 	}
-
+	
 	public Collection<E> getEdgesInPath(V orig, V dest) {
 		DijkstraShortestPath<V, E> dsp = new DijkstraShortestPath<V, E>(g);
 		List<E> path = dsp.getPath(orig, dest);
@@ -238,7 +248,8 @@ public class Solver {
 	}
 
 	// RESTRICAO (1): x^k_a + x^k_c <= 1 + x^k_b k \in K, {a, c \in A}, b \in P(a,c)
-	// TO DO
+	// Conectividade de cada grupo. Se existir um par de arestas "a" e "c" em um mesmo grupo
+	// "k", então toda aresta do caminho entre "a" e "c" deve fazer parte do grupo "k".
 	private void addConstraint1(GRBModel model) {
 		try {
 			Iterator<E> iterEdges = g.getEdges().iterator();
@@ -279,6 +290,7 @@ public class Solver {
 	}
 
 	// RESTRICAO (2): sum(y_ij + z_ij) = |K|-1 (i,j \in A)
+	// Quantidade de sinalizadores
 	private void addConstraint2(GRBModel model) {
 		try {
 			Iterator<E> iterEdges = g.getEdges().iterator();
@@ -288,7 +300,7 @@ public class Solver {
 				constraint.addTerm(1, y[edge.id]);
 				constraint.addTerm(1, z[edge.id]);
 			}
-			model.addConstr(constraint, GRB.LESS_EQUAL, inst.parameters.numFI - 1, "c2");
+			model.addConstr(constraint, GRB.LESS_EQUAL, inst.parameters.numFI, "c2");
 		} catch (GRBException e) {
 			System.out.println("Error code: " + e.getErrorCode() + ". " + e.getMessage());
 		}
@@ -298,6 +310,9 @@ public class Solver {
 	// \forall k \in K, \forall a \in \delta(i) / {j}
 	// x^k_{ij} + x^k_a \leqslant 2 - z_{ij} & \forall (i,j) \in A, \forall k \in K,
 	// \forall a \in \delta(j) / {i}
+	// Restrições de fronteira. Uma vez que um sinalizador é alocado, verifica-se as
+	// arestas incidentes na vizinhança do sinalizador. As restrições impedem que duas
+	// arestas vizinhas separadas por um sinalizador estejam no mesmo grupo.
 	private void addConstraint3(GRBModel model) {
 
 		try {
@@ -305,29 +320,36 @@ public class Solver {
 			Iterator<E> iterEdges = g.getEdges().iterator();
 			while (iterEdges.hasNext()) {
 				E edge = iterEdges.next(); //(i,j) 
-				// arestas incidentes do no i se i=node1 j=node2
-				Iterator<E> iterEdgesInc = g.getIncidentEdges(edge.node1).iterator();
+				V orig, dest;
+				if (g.isSource(edge.node1, edge)) {
+					orig = edge.node1;
+					dest = edge.node2;
+				} else {
+					orig = edge.node2;
+					dest = edge.node1;
+				}
+				Iterator<E> iterEdgesInc = g.getIncidentEdges(orig).iterator();
 				while (iterEdgesInc.hasNext()) {
 					E edgeA = iterEdgesInc.next();
 					if (edge!= edgeA) {
 						for (int k = 0; k <= this.inst.parameters.numFI; k++) {
 							constraint.addTerm(1.0, x[edge.id][k]);
 							constraint.addTerm(1.0, x[edgeA.id][k]);
-							constraint.addTerm(-1.0, y[edge.id]);
+							constraint.addTerm(1.0, y[edge.id]);
 							model.addConstr(constraint, GRB.LESS_EQUAL, 2, "c3y");
 							constraint.clear();
 						}
 					}
 				}
 				// arestas incidentes em j
-				iterEdgesInc = g.getIncidentEdges(edge.node2).iterator();
+				iterEdgesInc = g.getIncidentEdges(dest).iterator();
 				while (iterEdgesInc.hasNext()) {
 					E edgeA = iterEdgesInc.next();
 					if (edge != edgeA) {
 						for (int k = 0; k <= this.inst.parameters.numFI; k++) {
 							constraint.addTerm(1.0, x[edge.id][k]);
 							constraint.addTerm(1.0, x[edgeA.id][k]);
-							constraint.addTerm(-1.0, z[edge.id]);
+							constraint.addTerm(1.0, z[edge.id]);
 							model.addConstr(constraint, GRB.LESS_EQUAL, 2, "c3z");
 							constraint.clear();
 						}
@@ -387,12 +409,12 @@ public class Solver {
 			GRBLinExpr ofexpr = new GRBLinExpr();
 
 			// Create variables
-			vars = new GRBVar[3][];
+			GRBVar[][] vars = new GRBVar[3][];
 			this.defineVarX(model, 0, ofexpr);
-			this.defineVarF(model, 1, ofexpr);
+			//this.defineVarF(model, 1, ofexpr);
 			// se considera transferencia por chaves de manobra
-			if (this.inst.parameters.isTransfer())
-				this.defineVarDT(model, 2, ofexpr);
+			//if (this.inst.parameters.isTransfer())
+				//this.defineVarDT(model, 2, ofexpr);
 
 			// Integrate new variables
 			model.update();
@@ -443,10 +465,10 @@ public class Solver {
 
 				// Constraint (4): sum{(u,v) \in path(0,j)}{dtuv} <= ti - fij (all (i,j) in
 				// goodSecs)
-				this.addConstraint4(model);
+				//this.addConstraint4(model);
 
 				// Constraint (5): dt <= M*xij (all (i,j) in goodSecs)
-				this.addConstraint5(model);
+				//this.addConstraint5(model);
 
 			}
 

@@ -139,9 +139,11 @@ public class Network {
 		    	V node2 = mapNodeIndex.get(nodeLabel2);
 		    	E edge;
 		    	if (prot)
-		    		edge = new E(g.getEdgeCount(),node1,node2,prot,numProt++,-1);
+		    		//edge = new E(g.getEdgeCount(),node1,node2,prot,numProt++,-1);
+		    		edge = new E(g.getEdgeCount(),node1,node2,prot,numProt++,-1,dist);
 		    	else
-		    		edge = new E(g.getEdgeCount(),node1,node2,prot,-1,numNoProt++);
+		    		//edge = new E(g.getEdgeCount(),node1,node2,prot,-1,numNoProt++);
+		    		edge = new E(g.getEdgeCount(),node1,node2,prot,numProt++,-1,dist);
 		    		
 		    	this.mapEdgeIndex.put(g.getEdgeCount(),edge);
 		    	
