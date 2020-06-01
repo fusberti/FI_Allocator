@@ -10,22 +10,20 @@
 package models.switches.gurobi;
 
 import java.io.BufferedReader;
-import java.io.BufferedWriter;
 import java.io.FileNotFoundException;
 import java.io.FileReader;
-import java.io.FileWriter;
 import java.io.IOException;
 import java.io.Reader;
 import java.io.StreamTokenizer;
-import java.io.Writer;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
+import java.util.ListIterator;
 
-import edu.uci.ics.jung.algorithms.shortestpath.DijkstraShortestPath;
 import edu.uci.ics.jung.graph.Graph;
 import gurobi.GRB;
+import gurobi.GRB.IntParam;
 import gurobi.GRBEnv;
 import gurobi.GRBException;
 import gurobi.GRBLinExpr;
@@ -43,13 +41,12 @@ import gurobi.GRBVar;
 
 import instances.Instance;
 import instances.networks.edges.E;
-import instances.networks.edges.E.SwitchType;
 import instances.networks.vertices.V;
 
 public class Solver {
 
 	public Instance inst;
-	Graph<V, E> g;
+	public static Graph<V, E> g;
 
 	final char tipoInt = GRB.INTEGER;
 	final char tipoFloat = GRB.CONTINUOUS;
@@ -75,7 +72,8 @@ public class Solver {
 					Reader fileInst = new BufferedReader(new FileReader("instancias.txt"));
 					StreamTokenizer stok = new StreamTokenizer(fileInst);
 
-					Writer outFileInst = new BufferedWriter(new FileWriter("lowerbounds/lowerbounds.txt"));
+					// Writer outFileInst = new BufferedWriter(new
+					// FileWriter("lowerbounds/lowerbounds.txt"));
 
 					stok.nextToken();
 					while (stok.sval != null) {
@@ -88,9 +86,9 @@ public class Solver {
 
 						env = new GRBEnv("mip1.log");
 						model = new GRBModel(env);
-
+						
 						// Configura os parametros do solver Gurobi
-						new GurobiParameters(model);
+						new GurobiParameters(model);						
 						gurobi.populateNewModel(model);
 
 						// Write model to file
@@ -100,7 +98,30 @@ public class Solver {
 
 						System.out.println("Obj: " + model.get(GRB.DoubleAttr.ObjVal));
 
-						System.out.println("maxSwitches " + gurobi.inst.parameters.getNumSwitches());
+//						GRBVar[] results = 	model.getVars();
+//						for (GRBVar var : results)
+//							System.out.printf("%s = %f\n", var.get(GRB.StringAttr.VarName), var.get(GRB.DoubleAttr.X));
+
+//						for (E edge : g.getEdges())
+//							System.out.printf("Arco %d (%d,%d) lengnt: %.1f\n", edge.id, edge.node1.id, edge.node2.id, edge.dist);
+//
+//						for (V vertex1 : g.getVertices())
+//							for (V vertex2 : g.getVertices())
+//								System.out.printf("Arco(%d,%d) %s\n", vertex1.id, vertex2.id,
+//										g.findEdge(vertex1, vertex2));
+
+						// System.exit(0);
+
+						GRBVar[] fvars = model.getVars();
+						double[] x = model.get(GRB.DoubleAttr.X, fvars);
+						String[] vnames = model.get(GRB.StringAttr.VarName, fvars);
+
+						for (int j = 0; j < fvars.length; j++) {
+							if (x[j] != 0.0) {
+								System.out.println(vnames[j] + " " + x[j]);
+							}
+						}
+//						System.out.println("maxSwitches " + gurobi.inst.parameters.getNumSwitches());
 
 						model.dispose();
 						env.dispose();
@@ -109,7 +130,7 @@ public class Solver {
 
 					}
 
-					outFileInst.close();
+					// outFileInst.close();
 
 					System.out.println(
 							"Otimizacao encerrada, resultados impressos em " + "resultados/" + instanciaNome + ".out");
@@ -129,7 +150,7 @@ public class Solver {
 	// generate the quadractic objective function
 	private void generateOF(GRBModel model, GRBQuadExpr ofexpr) {
 
-		for (int k = 0; k <= inst.parameters.numFI; k++) {
+		for (int k = 0; k <= inst.parameters.getNumFI(); k++) {
 			Iterator<E> iterEdges = g.getEdges().iterator();
 			while (iterEdges.hasNext()) {
 				E edge = iterEdges.next();
@@ -141,26 +162,25 @@ public class Solver {
 				}
 			}
 		}
-
 	}
 
 	// variaveis tipo X -- x_kp = 1 indica que o arco k pertence a parte p
-	private void defineVarX(GRBModel model, int indVar, GRBLinExpr ofexpr) {
+	private void defineVarX(GRBModel model, int indVar, GRBQuadExpr ofexpr) {
 
 		// variaveis tipo X
-		x = new GRBVar[g.getEdges().size()][inst.parameters.numFI + 1];
+		x = new GRBVar[g.getEdges().size()][inst.parameters.getNumFI() + 1];
 
 		try {
 
 			Iterator<E> iterEdges = g.getEdges().iterator();
 			while (iterEdges.hasNext()) {
 				E edge = iterEdges.next();
-				double objvalsX = 0.0f;
+				//double objvalsX = 0.0f;
 				double lbX = 0.0;
 				double ubX = 1.0;
-				for (int k = 0; k <= inst.parameters.numFI; k++) {
-					x[edge.id][k] = model.addVar(lbX, ubX, objvalsX, tipoBinary, "x[" + edge.id + "," + k + "]");
-					ofexpr.addTerm(objvalsX, x[edge.id][k]);
+				for (int k = 0; k <= inst.parameters.getNumFI(); k++) {
+					x[edge.id][k] = model.addVar(lbX, ubX, 0.0f, tipoBinary, "x[" + edge.id + "," + k + "]");
+					// ofexpr.addTerm(objvalsX, x[edge.id][k]);
 				}
 			}
 
@@ -172,7 +192,7 @@ public class Solver {
 
 	// variaveis tipo Y -- y_ij = 1 indica que na fronteira do no i existe um
 	// sinalizador
-	private void defineVarY(GRBModel model, int indVar, GRBLinExpr ofexpr) {
+	private void defineVarY(GRBModel model, int indVar, GRBQuadExpr ofexpr) {
 
 		// variaveis tipo Y
 		y = new GRBVar[g.getEdgeCount()];
@@ -182,12 +202,12 @@ public class Solver {
 			Iterator<E> iterEdges = g.getEdges().iterator();
 			while (iterEdges.hasNext()) {
 				E edge = iterEdges.next();
-				double objvalsY = 0.0f;
+				//double objvalsY = 0.0f;
 				// fault indicator
 				double lb = 0.0;
 				double ub = 1.0;
 				y[edge.id] = model.addVar(lb, ub, 0.0f, tipoBinary, "y[" + edge.id + "]");
-				ofexpr.addTerm(objvalsY, y[edge.id]);
+				// ofexpr.addTerm(objvalsY, y[edge.id]);
 			}
 
 		} catch (GRBException e) {
@@ -198,7 +218,7 @@ public class Solver {
 
 	// variaveis tipo Z -- z_ij = 1 indica que na fronterira do no j existe um
 	// sinalizador
-	private void defineVarZ(GRBModel model, int indVar, GRBLinExpr ofexpr) {
+	private void defineVarZ(GRBModel model, int indVar, GRBQuadExpr ofexpr) {
 
 		// variaveis tipo Y
 		z = new GRBVar[g.getEdgeCount()];
@@ -208,12 +228,12 @@ public class Solver {
 			Iterator<E> iterEdges = g.getEdges().iterator();
 			while (iterEdges.hasNext()) {
 				E edge = iterEdges.next();
-				double objvalsY = 0.0f;
+				//double objvalsY = 0.0f;
 				// fault indicator
 				double lb = 0.0;
 				double ub = 1.0;
 				z[edge.id] = model.addVar(lb, ub, 0.0f, tipoBinary, "z[" + edge.id + "]");
-				ofexpr.addTerm(objvalsY, z[edge.id]);
+				// ofexpr.addTerm(objvalsY, z[edge.id]);
 			}
 
 		} catch (GRBException e) {
@@ -230,7 +250,7 @@ public class Solver {
 			while (iterEdges.hasNext()) {
 				E edge = iterEdges.next();
 				GRBLinExpr constraint = new GRBLinExpr();
-				for (int k = 0; k <= this.inst.parameters.numFI; k++) {
+				for (int k = 0; k <= this.inst.parameters.getNumFI(); k++) {
 					constraint.addTerm(1, x[edge.id][k]);
 				}
 				model.addConstr(constraint, GRB.EQUAL, 1, "c0");
@@ -240,26 +260,77 @@ public class Solver {
 			System.out.println("Error code: " + e.getErrorCode() + ". " + e.getMessage());
 		}
 	}
-	
+
 	public Collection<E> getEdgesInPath(V orig, V dest) {
-		DijkstraShortestPath<V, E> dsp = new DijkstraShortestPath<V, E>(g);
-		List<E> path = dsp.getPath(orig, dest);
+		/// DijkstraShortestPath<V, E> dsp = new DijkstraShortestPath<V, E>(g, new
+		/// Transformer<E, Double>() {
+		//	public Double transform(E otherEdge) {
+		//		return otherEdge.dist;
+		//	}
+		//});
+		//List<E> path = dsp.getPath(orig, dest);
+		List<E> path = new ArrayList<E>();
+		List<V> predecessorsOrig = new ArrayList<V>();
+		List<V> predecessorsDest = new ArrayList<V>();
+		V start = orig;
+		predecessorsOrig.add(start);
+		while (g.getPredecessors(start).iterator().hasNext()) {
+			V pred = g.getPredecessors(start).iterator().next();
+			predecessorsOrig.add(pred);
+			start = pred;
+		}
+		start = dest;
+		predecessorsDest.add(start);
+		while (g.getPredecessors(start).iterator().hasNext()) {
+			V pred = g.getPredecessors(start).iterator().next();
+			predecessorsDest.add(pred);
+			start = pred;
+		}
+		List<V> predecessors = new ArrayList<V>();
+		for (V vertex : predecessorsOrig) {
+			predecessors.add(vertex);
+			int idx = predecessorsDest.indexOf(vertex);
+			if (idx >= 0) {
+				ListIterator<V> iter = predecessorsDest.listIterator(idx);
+				while (iter.hasPrevious()) {
+					predecessors.add(iter.previous());
+				}
+				break;
+			}
+		}
+
+		Iterator<V> iter = predecessors.iterator();
+		V next;
+		start = iter.next();
+		while (iter.hasNext()) {
+			next = iter.next();
+			E edge = g.findEdge(start, next);
+			if (edge == null)
+				path.add(g.findEdge(next, start));
+			else
+				path.add(edge);
+			start = next;
+		}
+//		System.out.printf("%d->%d: %s\n", orig.id, dest.id, predecessors);
+//		System.out.printf("%d->%d: %s\n", orig.id, dest.id, path);
 		return path;
 	}
 
 	// RESTRICAO (1): x^k_a + x^k_c <= 1 + x^k_b k \in K, {a, c \in A}, b \in P(a,c)
-	// Conectividade de cada grupo. Se existir um par de arestas "a" e "c" em um mesmo grupo
-	// "k", então toda aresta do caminho entre "a" e "c" deve fazer parte do grupo "k".
+	// Conectividade de cada grupo. Se existir um par de arestas "a" e "c" em um
+	// mesmo grupo
+	// "k", então toda aresta do caminho entre "a" e "c" deve fazer parte do grupo
+	// "k".
 	private void addConstraint1(GRBModel model) {
 		try {
 			Iterator<E> iterEdges = g.getEdges().iterator();
-			while (iterEdges.hasNext()) {			
+			while (iterEdges.hasNext()) {
 				E edgeA = iterEdges.next();
 				for (E edgeC : g.getEdges()) {
 					if (edgeC != edgeA && edgeC.node1 != edgeA.node1 && edgeC.node1 != edgeA.node2
 							&& edgeC.node2 != edgeA.node1 && edgeC.node2 != edgeA.node2) {
 						V orig, dest;
-						if (g.isSource(edgeA.node1, edgeA)) //se i=node1 e j=node2 nao precisa
+						if (g.isSource(edgeA.node1, edgeA)) // se i=node1 e j=node2 nao precisa
 							orig = edgeA.node1;
 						else
 							orig = edgeA.node2;
@@ -269,10 +340,10 @@ public class Solver {
 							dest = edgeC.node2;
 						Iterator<E> iterPredEdges = getEdgesInPath(orig, dest).iterator();
 						while (iterPredEdges.hasNext()) {
-							E edgeB = iterEdges.next();
+							E edgeB = iterPredEdges.next();
 							if (edgeB == edgeA)
 								break;
-							for (int k = 0; k <= this.inst.parameters.numFI; k++) {
+							for (int k = 0; k <= this.inst.parameters.getNumFI(); k++) {
 								GRBLinExpr constraint = new GRBLinExpr();
 								constraint.addTerm(1, x[edgeA.id][k]);
 								constraint.addTerm(1, x[edgeC.id][k]);
@@ -300,7 +371,7 @@ public class Solver {
 				constraint.addTerm(1, y[edge.id]);
 				constraint.addTerm(1, z[edge.id]);
 			}
-			model.addConstr(constraint, GRB.LESS_EQUAL, inst.parameters.numFI, "c2");
+			model.addConstr(constraint, GRB.EQUAL, inst.parameters.getNumFI(), "c2");
 		} catch (GRBException e) {
 			System.out.println("Error code: " + e.getErrorCode() + ". " + e.getMessage());
 		}
@@ -311,7 +382,8 @@ public class Solver {
 	// x^k_{ij} + x^k_a \leqslant 2 - z_{ij} & \forall (i,j) \in A, \forall k \in K,
 	// \forall a \in \delta(j) / {i}
 	// Restrições de fronteira. Uma vez que um sinalizador é alocado, verifica-se as
-	// arestas incidentes na vizinhança do sinalizador. As restrições impedem que duas
+	// arestas incidentes na vizinhança do sinalizador. As restrições impedem que
+	// duas
 	// arestas vizinhas separadas por um sinalizador estejam no mesmo grupo.
 	private void addConstraint3(GRBModel model) {
 
@@ -319,7 +391,7 @@ public class Solver {
 			GRBLinExpr constraint = new GRBLinExpr();
 			Iterator<E> iterEdges = g.getEdges().iterator();
 			while (iterEdges.hasNext()) {
-				E edge = iterEdges.next(); //(i,j) 
+				E edge = iterEdges.next(); // (i,j)
 				V orig, dest;
 				if (g.isSource(edge.node1, edge)) {
 					orig = edge.node1;
@@ -331,8 +403,8 @@ public class Solver {
 				Iterator<E> iterEdgesInc = g.getIncidentEdges(orig).iterator();
 				while (iterEdgesInc.hasNext()) {
 					E edgeA = iterEdgesInc.next();
-					if (edge!= edgeA) {
-						for (int k = 0; k <= this.inst.parameters.numFI; k++) {
+					if (edge != edgeA) {
+						for (int k = 0; k <= this.inst.parameters.getNumFI(); k++) {
 							constraint.addTerm(1.0, x[edge.id][k]);
 							constraint.addTerm(1.0, x[edgeA.id][k]);
 							constraint.addTerm(1.0, y[edge.id]);
@@ -346,23 +418,21 @@ public class Solver {
 				while (iterEdgesInc.hasNext()) {
 					E edgeA = iterEdgesInc.next();
 					if (edge != edgeA) {
-						for (int k = 0; k <= this.inst.parameters.numFI; k++) {
+						for (int k = 0; k <= this.inst.parameters.getNumFI(); k++) {
 							constraint.addTerm(1.0, x[edge.id][k]);
 							constraint.addTerm(1.0, x[edgeA.id][k]);
 							constraint.addTerm(1.0, z[edge.id]);
 							model.addConstr(constraint, GRB.LESS_EQUAL, 2, "c3z");
 							constraint.clear();
 						}
-					}					
+					}
 				}
-			}
-
+			}			
 		} catch (GRBException e) {
 			System.out.println("Error code: " + e.getErrorCode() + ". " + e.getMessage());
 		}
 	}
 
-	
 	// Essas restricoes "apertam" o modelo
 	// RESTRICAO (6): fij <= theta_j + sum_{(j,k) \in A}(fjk) (all (i,j) in E)
 	// private void addConstraint6(GRBModel model) {
@@ -406,71 +476,28 @@ public class Solver {
 
 		try {
 
-			GRBLinExpr ofexpr = new GRBLinExpr();
+			GRBQuadExpr ofexpr = new GRBQuadExpr();
 
 			// Create variables
-			GRBVar[][] vars = new GRBVar[3][];
 			this.defineVarX(model, 0, ofexpr);
-			//this.defineVarF(model, 1, ofexpr);
-			// se considera transferencia por chaves de manobra
-			//if (this.inst.parameters.isTransfer())
-				//this.defineVarDT(model, 2, ofexpr);
+			//this.defineVarY(model, 1, ofexpr);
+			//this.defineVarZ(model, 2, ofexpr);
+			this.generateOF(model, ofexpr);
 
 			// Integrate new variables
 			model.update();
 
-			// Create objective function expression
-			switch (inst.parameters.getOBJ()) {
-			case COST:
-				ofexpr.addConstant(
-						inst.parameters.getKwhCost() * (inst.reliability.getPtheta() + inst.reliability.getSumPFl()));
-				break;
-			case ENS:
-				ofexpr.addConstant(inst.reliability.getPtheta() + inst.reliability.getSumPFl());
-				break;
-			case SAIDI:
-				ofexpr.addConstant(
-						(inst.reliability.getNtheta() + inst.reliability.getSumNFl()) / inst.net.getRoot().clientsSum);
-				break;
-			}
 			model.setObjective(ofexpr);
 
-			// Constraint (0): sum X <= numMax
+			// RESTRICAO (0): sum x_ij = 1 \in k
 			this.addConstraint0(model);
 
-			// Constraint (1): fij >= theta_j + sum_{(j,k) \in A}(fjk) - Mxij (all (i,j) in
-			// E)
+			// RESTRICAO (1): x^k_a + x^k_c <= 1 + x^k_b k \in K, {a, c \in A}, b \in P(a,c)
 			this.addConstraint1(model);
 
-			// if the SAIDI is bounded
-			if (this.inst.parameters.getLimSAIDI() < Double.MAX_VALUE) {
+//			this.addConstraint2(model);
 
-				// Constraint (4): sum{(u,v) \in path(0,j)}{dtuv} <= ti - fij (all (i,j) in
-				// goodSecs)
-				this.addConstraint2(model);
-
-			}
-
-			// if the ENS is bounded
-			if (this.inst.parameters.getLimENS() < Double.MAX_VALUE) {
-
-				// Constraint (4): sum{(u,v) \in path(0,j)}{dtuv} <= ti - fij (all (i,j) in
-				// goodSecs)
-				this.addConstraint3(model);
-
-			}
-
-			// if there is load transfer through tie lines
-			if (this.inst.parameters.isTransfer()) {
-
-				// Constraint (4): sum{(u,v) \in path(0,j)}{dtuv} <= ti - fij (all (i,j) in
-				// goodSecs)
-				//this.addConstraint4(model);
-
-				// Constraint (5): dt <= M*xij (all (i,j) in goodSecs)
-				//this.addConstraint5(model);
-
-			}
+//			this.addConstraint3(model);
 
 			model.update();
 

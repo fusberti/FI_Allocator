@@ -134,7 +134,10 @@ public class Network {
 		    	boolean prot = false;
 		    	if (stok.nval > 0)
 		    		prot = true;
-   		    	   		   	
+   		    	
+		    	stok.nextToken();
+		    	int dist = (int) stok.nval;
+		    	
 		    	V node1 = mapNodeIndex.get(nodeLabel1);
 		    	V node2 = mapNodeIndex.get(nodeLabel2);
 		    	E edge;
