@@ -260,50 +260,42 @@ public class Solver {
 		}
 	}
 
+	
 	public Collection<E> getEdgesInPath(V orig, V dest) {
-		/// DijkstraShortestPath<V, E> dsp = new DijkstraShortestPath<V, E>(g, new
-		/// Transformer<E, Double>() {
-		// public Double transform(E otherEdge) {
-		// return otherEdge.dist;
-		// }
-		// });
-		// List<E> path = dsp.getPath(orig, dest);
 		List<E> path = new ArrayList<E>();
+		E edge = g.findEdge(orig, dest);
+		if ((edge = g.findEdge(orig, dest))!=null || (edge = g.findEdge(dest, orig))!=null ) {
+			path.add(edge);			
+			return path;
+		}		
 		List<V> predecessorsOrig = new ArrayList<V>();
 		List<V> predecessorsDest = new ArrayList<V>();
-		V start = orig;
-		predecessorsOrig.add(start);
-		while (g.getPredecessors(start).iterator().hasNext()) {
-			V pred = g.getPredecessors(start).iterator().next();
-			predecessorsOrig.add(pred);
-			start = pred;
-		}
-		start = dest;
-		predecessorsDest.add(start);
-		while (g.getPredecessors(start).iterator().hasNext()) {
-			V pred = g.getPredecessors(start).iterator().next();
-			predecessorsDest.add(pred);
-			start = pred;
-		}
-		List<V> predecessors = new ArrayList<V>();
-		for (V vertex : predecessorsOrig) {
-			predecessors.add(vertex);
-			int idx = predecessorsDest.indexOf(vertex);
-			if (idx >= 0) {
-				ListIterator<V> iter = predecessorsDest.listIterator(idx);
-				while (iter.hasPrevious()) {
-					predecessors.add(iter.previous());
-				}
-				break;
-			}
-		}
-
+		V pred = orig;		
+		predecessorsOrig.add(pred);
+		while (g.getPredecessors(pred).iterator().hasNext()) {
+			pred = g.getPredecessors(pred).iterator().next();
+			predecessorsOrig.add(pred);			
+		}			
+		
+		predecessorsDest.add(dest);
+		int idx = predecessorsOrig.indexOf(dest);
+		pred = dest;
+		while (g.getPredecessors(pred).iterator().hasNext() && idx<0) {
+			pred = g.getPredecessors(pred).iterator().next();
+			idx = predecessorsOrig.indexOf(pred);
+			predecessorsDest.add(pred);					
+		}	
+		List<V> predecessors;
+		predecessors = new ArrayList<V>(predecessorsOrig.subList(0,idx+1));					
+		ListIterator<V> iterPred = predecessorsDest.listIterator(predecessorsDest.size()-1);
+		while (iterPred.hasPrevious()) {			
+				predecessors.add(iterPred.previous());
+		}		
 		Iterator<V> iter = predecessors.iterator();
-		V next;
-		start = iter.next();
+		V next, start = iter.next();
 		while (iter.hasNext()) {
 			next = iter.next();
-			E edge = g.findEdge(start, next);
+			edge = g.findEdge(start, next);
 			if (edge == null)
 				path.add(g.findEdge(next, start));
 			else
@@ -314,7 +306,8 @@ public class Solver {
 //		System.out.printf("%d->%d: %s\n", orig.id, dest.id, path);
 		return path;
 	}
-
+	
+	
 	// RESTRICAO (1): x^k_a + x^k_c <= 1 + x^k_b k \in K, {a, c \in A}, b \in P(a,c)
 	// Conectividade de cada grupo. Se existir um par de arestas "a" e "c" em um
 	// mesmo grupo
@@ -340,7 +333,7 @@ public class Solver {
 						Iterator<E> iterPredEdges = getEdgesInPath(orig, dest).iterator();
 						while (iterPredEdges.hasNext()) {
 							E edgeB = iterPredEdges.next();
-							if (edgeB == edgeA)
+							if (edgeB == edgeA || edgeB == edgeC)
 								break;
 							for (int k = 0; k <= this.inst.parameters.getNumFI(); k++) {
 								GRBLinExpr constraint = new GRBLinExpr();
