@@ -23,7 +23,6 @@ import java.util.ListIterator;
 
 import edu.uci.ics.jung.graph.Graph;
 import gurobi.GRB;
-import gurobi.GRB.IntParam;
 import gurobi.GRBEnv;
 import gurobi.GRBException;
 import gurobi.GRBLinExpr;
@@ -86,9 +85,9 @@ public class Solver {
 
 						env = new GRBEnv("mip1.log");
 						model = new GRBModel(env);
-						
+
 						// Configura os parametros do solver Gurobi
-						new GurobiParameters(model);						
+						new GurobiParameters(model);
 						gurobi.populateNewModel(model);
 
 						// Write model to file
@@ -175,7 +174,7 @@ public class Solver {
 			Iterator<E> iterEdges = g.getEdges().iterator();
 			while (iterEdges.hasNext()) {
 				E edge = iterEdges.next();
-				//double objvalsX = 0.0f;
+				// double objvalsX = 0.0f;
 				double lbX = 0.0;
 				double ubX = 1.0;
 				for (int k = 0; k <= inst.parameters.getNumFI(); k++) {
@@ -202,7 +201,7 @@ public class Solver {
 			Iterator<E> iterEdges = g.getEdges().iterator();
 			while (iterEdges.hasNext()) {
 				E edge = iterEdges.next();
-				//double objvalsY = 0.0f;
+				// double objvalsY = 0.0f;
 				// fault indicator
 				double lb = 0.0;
 				double ub = 1.0;
@@ -228,7 +227,7 @@ public class Solver {
 			Iterator<E> iterEdges = g.getEdges().iterator();
 			while (iterEdges.hasNext()) {
 				E edge = iterEdges.next();
-				//double objvalsY = 0.0f;
+				// double objvalsY = 0.0f;
 				// fault indicator
 				double lb = 0.0;
 				double ub = 1.0;
@@ -264,11 +263,11 @@ public class Solver {
 	public Collection<E> getEdgesInPath(V orig, V dest) {
 		/// DijkstraShortestPath<V, E> dsp = new DijkstraShortestPath<V, E>(g, new
 		/// Transformer<E, Double>() {
-		//	public Double transform(E otherEdge) {
-		//		return otherEdge.dist;
-		//	}
-		//});
-		//List<E> path = dsp.getPath(orig, dest);
+		// public Double transform(E otherEdge) {
+		// return otherEdge.dist;
+		// }
+		// });
+		// List<E> path = dsp.getPath(orig, dest);
 		List<E> path = new ArrayList<E>();
 		List<V> predecessorsOrig = new ArrayList<V>();
 		List<V> predecessorsDest = new ArrayList<V>();
@@ -383,8 +382,7 @@ public class Solver {
 	// \forall a \in \delta(j) / {i}
 	// Restrições de fronteira. Uma vez que um sinalizador é alocado, verifica-se as
 	// arestas incidentes na vizinhança do sinalizador. As restrições impedem que
-	// duas
-	// arestas vizinhas separadas por um sinalizador estejam no mesmo grupo.
+	// duas arestas vizinhas separadas por um sinalizador estejam no mesmo grupo.
 	private void addConstraint3(GRBModel model) {
 
 		try {
@@ -427,7 +425,71 @@ public class Solver {
 						}
 					}
 				}
-			}			
+			}
+		} catch (GRBException e) {
+			System.out.println("Error code: " + e.getErrorCode() + ". " + e.getMessage());
+		}
+	}
+
+	// x^{k_1}_{ij} + x^{k_2}_{j,l} \leqslant 1 + y_{ij} + z_{ij} & \forall
+	// (i,j),(j,l) \in A, \forall k_1,k_2 \in K, k_1 \neq k_2
+	//completa a restricao de fronteira, se as arestas vizinhas sao de grupos
+	//diferentes entao tem que ter um sinalizador entre elas
+	private void addConstraint4(GRBModel model) {
+		try {
+			GRBLinExpr constraint = new GRBLinExpr();
+			Iterator<E> iterEdges = g.getEdges().iterator();
+			while (iterEdges.hasNext()) {
+				E edge = iterEdges.next(); // (i,j)
+				V dest = edge.node2;
+				if (g.isSource(edge.node2, edge))
+					dest = edge.node1;
+				Iterator<E> iterEdgesOut = g.getOutEdges(dest).iterator();
+				while (iterEdgesOut.hasNext()) {
+					E edgeOut = iterEdgesOut.next();
+					for (int k1 = 0; k1 <= this.inst.parameters.getNumFI(); k1++)
+						for (int k2 = 0; k2 <= this.inst.parameters.getNumFI(); k2++)
+							if (k1 != k2) {
+								constraint.addTerm(1.0, x[edge.id][k1]);
+								constraint.addTerm(1.0, x[edgeOut.id][k2]);
+								constraint.addTerm(-1.0, z[edge.id]);
+								constraint.addTerm(-1.0, y[edgeOut.id]);
+								model.addConstr(constraint, GRB.LESS_EQUAL, 1, "c4yz");
+								constraint.clear();
+							}
+				}
+			}
+		} catch (GRBException e) {
+			System.out.println("Error code: " + e.getErrorCode() + ". " + e.getMessage());
+		}
+	}
+
+	// Forca as variaveis y[0]=0 e as z[ij]=0 para todo ij se j eh no folha
+	private void setContourVars(GRBModel model) {
+		try {
+			GRBLinExpr constraint = new GRBLinExpr();
+			// y[0]=0 for the root node
+			constraint.addTerm(1.0, y[0]);
+			model.addConstr(constraint, GRB.EQUAL, 0, "contoury0");
+			constraint.clear();
+			// z[ij]=0 when j is a leaf
+			Iterator<E> iterEdges = g.getEdges().iterator();
+			V orig, dest;
+			while (iterEdges.hasNext()) {
+				E edge = iterEdges.next(); // (i,j)
+				if (g.isSource(edge.node1, edge)) {
+					orig = edge.node1;
+					dest = edge.node2;
+				} else {
+					orig = edge.node2;
+					dest = edge.node1;
+				}
+				if (g.getSuccessorCount(dest) == 0) {
+					constraint.addTerm(1.0, z[edge.id]);
+					model.addConstr(constraint, GRB.EQUAL, 0, "contourz");
+					constraint.clear();
+				}
+			}
 		} catch (GRBException e) {
 			System.out.println("Error code: " + e.getErrorCode() + ". " + e.getMessage());
 		}
@@ -480,8 +542,8 @@ public class Solver {
 
 			// Create variables
 			this.defineVarX(model, 0, ofexpr);
-			//this.defineVarY(model, 1, ofexpr);
-			//this.defineVarZ(model, 2, ofexpr);
+			this.defineVarY(model, 1, ofexpr);
+			this.defineVarZ(model, 2, ofexpr);
 			this.generateOF(model, ofexpr);
 
 			// Integrate new variables
@@ -495,9 +557,17 @@ public class Solver {
 			// RESTRICAO (1): x^k_a + x^k_c <= 1 + x^k_b k \in K, {a, c \in A}, b \in P(a,c)
 			this.addConstraint1(model);
 
-//			this.addConstraint2(model);
+			// RESTRICAO (2): de fronteira em y
+			this.addConstraint2(model);
 
-//			this.addConstraint3(model);
+			// RESTRICAO (3): de fronteira em z
+			this.addConstraint3(model);
+
+			// RESTRICAO (3): de fronteira com y e z
+			this.addConstraint4(model);
+
+			// fixa variaveis de contorno
+			this.setContourVars(model);
 
 			model.update();
 
