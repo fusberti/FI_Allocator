@@ -20,6 +20,7 @@ import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
 import java.util.ListIterator;
+import java.util.stream.Collectors;
 
 import edu.uci.ics.jung.graph.Graph;
 import gurobi.GRB;
@@ -260,37 +261,36 @@ public class Solver {
 		}
 	}
 
-	
 	public Collection<E> getEdgesInPath(V orig, V dest) {
 		List<E> path = new ArrayList<E>();
 		E edge = g.findEdge(orig, dest);
-		if ((edge = g.findEdge(orig, dest))!=null || (edge = g.findEdge(dest, orig))!=null ) {
-			path.add(edge);			
+		if ((edge = g.findEdge(orig, dest)) != null || (edge = g.findEdge(dest, orig)) != null) {
+			path.add(edge);
 			return path;
-		}		
+		}
 		List<V> predecessorsOrig = new ArrayList<V>();
 		List<V> predecessorsDest = new ArrayList<V>();
-		V pred = orig;		
+		V pred = orig;
 		predecessorsOrig.add(pred);
 		while (g.getPredecessors(pred).iterator().hasNext()) {
 			pred = g.getPredecessors(pred).iterator().next();
-			predecessorsOrig.add(pred);			
-		}			
-		
+			predecessorsOrig.add(pred);
+		}
+
 		predecessorsDest.add(dest);
 		int idx = predecessorsOrig.indexOf(dest);
 		pred = dest;
-		while (g.getPredecessors(pred).iterator().hasNext() && idx<0) {
+		while (g.getPredecessors(pred).iterator().hasNext() && idx < 0) {
 			pred = g.getPredecessors(pred).iterator().next();
 			idx = predecessorsOrig.indexOf(pred);
-			predecessorsDest.add(pred);					
-		}	
+			predecessorsDest.add(pred);
+		}
 		List<V> predecessors;
-		predecessors = new ArrayList<V>(predecessorsOrig.subList(0,idx+1));					
-		ListIterator<V> iterPred = predecessorsDest.listIterator(predecessorsDest.size()-1);
-		while (iterPred.hasPrevious()) {			
-				predecessors.add(iterPred.previous());
-		}		
+		predecessors = new ArrayList<V>(predecessorsOrig.subList(0, idx + 1));
+		ListIterator<V> iterPred = predecessorsDest.listIterator(predecessorsDest.size() - 1);
+		while (iterPred.hasPrevious()) {
+			predecessors.add(iterPred.previous());
+		}
 		Iterator<V> iter = predecessors.iterator();
 		V next, start = iter.next();
 		while (iter.hasNext()) {
@@ -306,8 +306,7 @@ public class Solver {
 //		System.out.printf("%d->%d: %s\n", orig.id, dest.id, path);
 		return path;
 	}
-	
-	
+
 	// RESTRICAO (1): x^k_a + x^k_c <= 1 + x^k_b k \in K, {a, c \in A}, b \in P(a,c)
 	// Conectividade de cada grupo. Se existir um par de arestas "a" e "c" em um
 	// mesmo grupo
@@ -426,8 +425,8 @@ public class Solver {
 
 	// x^{k_1}_{ij} + x^{k_2}_{j,l} \leqslant 1 + y_{ij} + z_{ij} & \forall
 	// (i,j),(j,l) \in A, \forall k_1,k_2 \in K, k_1 \neq k_2
-	//completa a restricao de fronteira, se as arestas vizinhas sao de grupos
-	//diferentes entao tem que ter um sinalizador entre elas
+	// completa a restricao de fronteira, se as arestas vizinhas sao de grupos
+	// diferentes entao tem que ter um sinalizador entre elas
 	private void addConstraint4(GRBModel model) {
 		try {
 			GRBLinExpr constraint = new GRBLinExpr();
@@ -466,23 +465,38 @@ public class Solver {
 			model.addConstr(constraint, GRB.EQUAL, 0, "contoury0");
 			constraint.clear();
 			// z[ij]=0 when j is a leaf
-			Iterator<E> iterEdges = g.getEdges().iterator();
-			V orig, dest;
-			while (iterEdges.hasNext()) {
-				E edge = iterEdges.next(); // (i,j)
-				if (g.isSource(edge.node1, edge)) {
-					orig = edge.node1;
-					dest = edge.node2;
-				} else {
-					orig = edge.node2;
-					dest = edge.node1;
-				}
-				if (g.getSuccessorCount(dest) == 0) {
-					constraint.addTerm(1.0, z[edge.id]);
+//			Iterator<E> iterEdges = g.getEdges().iterator();
+//			V orig, dest;
+//			while (iterEdges.hasNext()) {
+//				E edge = iterEdges.next(); // (i,j)
+//				if (g.isSource(edge.node1, edge)) {
+//					orig = edge.node1;
+//					dest = edge.node2;
+//				} else {
+//					orig = edge.node2;
+//					dest = edge.node1;
+//				}
+//
+//				if (g.getSuccessorCount(dest) == 0) {
+//					constraint.addTerm(1.0, z[edge.id]);
+//					model.addConstr(constraint, GRB.EQUAL, 0, "contourz");
+//					constraint.clear();
+//				}
+//			}
+
+			g.getVertices().stream().filter(v -> g.getIncidentEdges(v).size() < 2 && v.id != 0).forEach(v -> {
+				try {
+					constraint.addTerm(1.0, z[g.getInEdges(v).iterator().next().id]);
 					model.addConstr(constraint, GRB.EQUAL, 0, "contourz");
 					constraint.clear();
+				} catch (GRBException e) {
+					System.out.println("Error code: " + e.getErrorCode() + ". " + e.getMessage());
 				}
-			}
+			});
+
+			// System.out.println(g.getVertices().stream().filter(v->g.getIncidentEdges(v).size()<2
+			// && v.id!=0).collect(Collectors.toList()));
+
 		} catch (GRBException e) {
 			System.out.println("Error code: " + e.getErrorCode() + ". " + e.getMessage());
 		}
