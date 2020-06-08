@@ -27,7 +27,7 @@ public class GurobiParameters {
 		super();
 		this.setModel(model);
 		this.setThreads(1);
-		this.setTime(600.0f);
+		this.setTime(360000.0f);
 		this.setMemsize(3.0f);
 		this.setPrecrush(PRECRUSHES.on);
 		this.setMipfocus(MIPFOCUSES.optimality);

@@ -12,6 +12,7 @@ public class E {
 	public double p;
 	// fault indicator
 	public double dist; // km
+
 	
 	public E(int id, V node1, V node2, boolean prot, int idProt, int idNoProt) {
 		this.id = id; // This is defined in the outer class.

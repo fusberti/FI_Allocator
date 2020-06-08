@@ -17,13 +17,16 @@ import java.io.Reader;
 import java.io.StreamTokenizer;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.Iterator;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.ListIterator;
 import java.util.stream.Collectors;
 
 import edu.uci.ics.jung.graph.Graph;
 import gurobi.GRB;
+import gurobi.GRBCallback;
 import gurobi.GRBEnv;
 import gurobi.GRBException;
 import gurobi.GRBLinExpr;
@@ -43,7 +46,7 @@ import instances.Instance;
 import instances.networks.edges.E;
 import instances.networks.vertices.V;
 
-public class Solver {
+public class Solver extends GRBCallback {
 
 	public Instance inst;
 	public static Graph<V, E> g;
@@ -54,6 +57,9 @@ public class Solver {
 	public static GRBEnv env;
 	public static GRBModel model;
 	public GRBVar[] x[], y, z;
+	
+	private int edgeGroup[];
+	private boolean visitedEdges[];
 
 	public Solver(String filename) {
 		this.inst = new Instance();
@@ -253,7 +259,7 @@ public class Solver {
 				for (int k = 0; k <= this.inst.parameters.getNumFI(); k++) {
 					constraint.addTerm(1, x[edge.id][k]);
 				}
-				model.addConstr(constraint, GRB.EQUAL, 1, "c0");
+				model.addConstr(constraint, GRB.EQUAL, 1, "c0_"+edge.id);
 			}
 
 		} catch (GRBException e) {
@@ -333,13 +339,13 @@ public class Solver {
 						while (iterPredEdges.hasNext()) {
 							E edgeB = iterPredEdges.next();
 							if (edgeB == edgeA || edgeB == edgeC)
-								break;
+								continue;
 							for (int k = 0; k <= this.inst.parameters.getNumFI(); k++) {
 								GRBLinExpr constraint = new GRBLinExpr();
 								constraint.addTerm(1, x[edgeA.id][k]);
 								constraint.addTerm(1, x[edgeC.id][k]);
 								constraint.addTerm(-1, x[edgeB.id][k]);
-								model.addConstr(constraint, GRB.LESS_EQUAL, 1, "c1");
+								model.addConstr(constraint, GRB.LESS_EQUAL, 1, "c1_"+edgeA.id+","+edgeB.id+","+edgeC.id+","+k);
 							}
 						}
 					}
@@ -351,7 +357,7 @@ public class Solver {
 		}
 	}
 
-	// RESTRICAO (2): sum(y_ij + z_ij) = |K|-1 (i,j \in A)
+	// RESTRICAO (2): sum(y_ij + z_ij) = |K|-1
 	// Quantidade de sinalizadores
 	private void addConstraint2(GRBModel model) {
 		try {
@@ -398,7 +404,7 @@ public class Solver {
 							constraint.addTerm(1.0, x[edge.id][k]);
 							constraint.addTerm(1.0, x[edgeA.id][k]);
 							constraint.addTerm(1.0, y[edge.id]);
-							model.addConstr(constraint, GRB.LESS_EQUAL, 2, "c3y");
+							model.addConstr(constraint, GRB.LESS_EQUAL, 2, "c3y_"+edge.id+","+edgeA.id+","+k);
 							constraint.clear();
 						}
 					}
@@ -412,7 +418,7 @@ public class Solver {
 							constraint.addTerm(1.0, x[edge.id][k]);
 							constraint.addTerm(1.0, x[edgeA.id][k]);
 							constraint.addTerm(1.0, z[edge.id]);
-							model.addConstr(constraint, GRB.LESS_EQUAL, 2, "c3z");
+							model.addConstr(constraint, GRB.LESS_EQUAL, 2, "c3z_"+edge.id+","+edgeA.id+","+k);
 							constraint.clear();
 						}
 					}
@@ -446,7 +452,7 @@ public class Solver {
 								constraint.addTerm(1.0, x[edgeOut.id][k2]);
 								constraint.addTerm(-1.0, z[edge.id]);
 								constraint.addTerm(-1.0, y[edgeOut.id]);
-								model.addConstr(constraint, GRB.LESS_EQUAL, 1, "c4yz");
+								model.addConstr(constraint, GRB.LESS_EQUAL, 1, "c4_"+edge.id+","+edgeOut.id+","+k1+","+k2);
 								constraint.clear();
 							}
 				}
@@ -487,7 +493,7 @@ public class Solver {
 			g.getVertices().stream().filter(v -> g.getIncidentEdges(v).size() < 2 && v.id != 0).forEach(v -> {
 				try {
 					constraint.addTerm(1.0, z[g.getInEdges(v).iterator().next().id]);
-					model.addConstr(constraint, GRB.EQUAL, 0, "contourz");
+					model.addConstr(constraint, GRB.EQUAL, 0, "contourz_"+v.id);
 					constraint.clear();
 				} catch (GRBException e) {
 					System.out.println("Error code: " + e.getErrorCode() + ". " + e.getMessage());
@@ -496,6 +502,34 @@ public class Solver {
 
 			// System.out.println(g.getVertices().stream().filter(v->g.getIncidentEdges(v).size()<2
 			// && v.id!=0).collect(Collectors.toList()));
+
+		} catch (GRBException e) {
+			System.out.println("Error code: " + e.getErrorCode() + ". " + e.getMessage());
+		}
+	}
+	
+	// Forca as variaveis y[0]=0 e as z[ij]=0 para todo ij se j eh no folha
+	private void setSymmetryBreaking(GRBModel model) {
+		try {
+			
+			int k = 0;
+			
+			
+			//Iterator<E> iterEdges = g.getEdges().iterator();
+			List<E> shuffleEdges = new ArrayList<E>(g.getEdges());
+			Collections.shuffle(shuffleEdges);
+			Iterator<E> iterEdges = shuffleEdges.iterator();
+			while (iterEdges.hasNext()) {
+				E edge = iterEdges.next(); 
+				
+				GRBLinExpr constraint = new GRBLinExpr();
+				for (int k2 = 0; k2 <= k; k2++) {
+					constraint.addTerm(1.0, x[edge.id][k2]);
+				}
+				model.addConstr(constraint, GRB.EQUAL, 1, "symmetry"+k);
+				k++;
+				if (k == inst.getParameters().getNumFI()) break;
+			}
 
 		} catch (GRBException e) {
 			System.out.println("Error code: " + e.getErrorCode() + ". " + e.getMessage());
@@ -575,6 +609,9 @@ public class Solver {
 
 			// fixa variaveis de contorno
 			this.setContourVars(model);
+			
+			// eliminação de simetria
+			//this.setSymmetryBreaking(model);
 
 			model.update();
 
@@ -587,5 +624,91 @@ public class Solver {
 	public Instance getInst() {
 		return inst;
 	}
+	
+	void checkConnectivity(V root, int k) {
+		
+		Iterator<E> iterEdges = g.getIncidentEdges(root).iterator();
+		
+		while (iterEdges.hasNext()) {
+			E edge = iterEdges.next();	
+			if (edgeGroup[edge.id] == k && !visitedEdges[edge.id]) {
+				V next = (edge.node1 != root) ? edge.node1 : edge.node2; 
+				visitedEdges[edge.id] = true;
+				checkConnectivity(next,k);
+			}
+		}
+ 
+	}
+	
 
+	@Override
+	  protected void callback() {
+			  
+//		visitedEdges = new boolean[g.getEdgeCount()];
+//		edgeGroup = new int[g.getEdgeCount()];
+//		E firstInGroup[] = new E[inst.getParameters().getNumFI()+1];
+//		  
+//	    try {
+//	    	
+//	      if (where == GRB.CB_MIPSOL) {
+//	        // Found an integer feasible solution - does it visit every node?
+//	        double x_val[][] = getSolution(x);
+//	        Iterator<E> iterEdges;
+//	        
+//	        
+//			iterEdges = g.getEdges().iterator();
+//			while (iterEdges.hasNext()) {
+//				E edge = iterEdges.next();
+//		        for (int k = 0; k <= inst.parameters.getNumFI(); k++) {
+//		        	if (x_val[edge.id][k] > 0.5) {
+//		        		edgeGroup[edge.id] = k;
+//		        		firstInGroup[k] = edge;
+//		        	}
+//		        }      	
+//	        }
+//			
+//			
+//	        for (int k = 0; k <= inst.parameters.getNumFI(); k++) {
+//	        	boolean visited[] = new boolean[g.getVertexCount()];
+//				E edgeA = firstInGroup[k];
+//				visited[edgeA.node1.id] = true;
+//				V root = edgeA.node1;
+//				//visited[edge.node2.id] = true;
+//							
+//				checkConnectivity(root, k);
+//				
+//				iterEdges = g.getEdges().iterator();
+//				E edgeC = null;
+//				while (iterEdges.hasNext()) {
+//					edgeC = iterEdges.next();			
+//					if (edgeGroup[edgeC.id] == k && !visitedEdges[edgeC.id]) {
+//						break; // encontrei
+//					}
+//				}
+//				
+//				// inserir restricao
+//				if (edgeC != null) {
+//					iterEdges = getEdgesInPath(edgeA.node1,edgeC.node1).iterator();
+//					while (iterEdges.hasNext()) {
+//						E edgeB = iterEdges.next();	
+//						if (edgeB == edgeA || edgeB == edgeC)
+//							continue;
+//						GRBLinExpr constraint = new GRBLinExpr();
+//						constraint.addTerm(1, x[edgeA.id][k]);
+//						constraint.addTerm(1, x[edgeC.id][k]);
+//						constraint.addTerm(-1, x[edgeB.id][k]);
+//						addLazy(constraint, GRB.LESS_EQUAL, 1); //, "c1_lazy_"+edgeA.id+","+edgeB.id+","+edgeC.id+","+k);
+//						break;
+//					}
+//				}
+//				
+//	        }  
+//	      }
+//	    } catch (GRBException e) {
+//	      System.out.println("Error code: " + e.getErrorCode() + ". " +
+//	          e.getMessage());
+//	      e.printStackTrace();
+//	    }
+	  }
+	
 }
