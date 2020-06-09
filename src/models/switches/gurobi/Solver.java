@@ -100,6 +100,7 @@ public class Solver extends GRBCallback {
 						// Write model to file
 						model.write("FI_Allocation.lp");
 
+						model.setCallback(gurobi);
 						model.optimize();
 
 						System.out.println("Obj: " + model.get(GRB.DoubleAttr.ObjVal));
@@ -696,16 +697,14 @@ public class Solver extends GRBCallback {
 			
 	        for (int k = 0; k <= inst.parameters.getNumFI(); k++) {
 
-	        	boolean visited[] = new boolean[g.getVertexCount()];
-				Iterator<V> iterNodes = g.getVertices().iterator();
-				while (iterNodes.hasNext()) {
-					V node = iterNodes.next();
-					visited[node.id] = false;
+	        	iterEdges = g.getEdges().iterator();
+				while (iterEdges.hasNext()) {
+					E edge = iterEdges.next();
+					visitedEdges[edge.id] = false;
 				}
 				
 				E edgeA = firstInGroup[k];
-				V root = edgeA.node1;
-				visited[root.id] = true;					
+				V root = edgeA.node1;		
 
 				// DFS no grupo k
 				checkConnectivity(root, k);
@@ -714,8 +713,9 @@ public class Solver extends GRBCallback {
 				iterEdges = g.getEdges().iterator();
 				E edgeC = null;
 				while (iterEdges.hasNext()) {
-					edgeC = iterEdges.next();			
-					if (edgeGroup[edgeC.id] == k && !visitedEdges[edgeC.id]) {
+					E edge = iterEdges.next();			
+					if (edgeGroup[edge.id] == k && !visitedEdges[edge.id]) {
+						edgeC = edge;
 						break; // encontrei
 					}
 				}
