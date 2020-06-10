@@ -17,6 +17,7 @@ import java.io.IOException;
 import java.io.Reader;
 import java.io.StreamTokenizer;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Iterator;
@@ -59,9 +60,9 @@ public class Solver extends GRBCallback {
 
 	private int edgeGroup[];
 	private boolean visitedEdges[];
-	
+
 	private static FileWriter logfile;
-	private static int count = 0;
+	private static int count;
 
 	public Solver(String filename) {
 		this.inst = new Instance();
@@ -98,7 +99,6 @@ public class Solver extends GRBCallback {
 						// Open log file for callbacks
 						logfile = new FileWriter("callback.log");
 
-						
 						// Configura os parametros do solver Gurobi
 						new GurobiParameters(model);
 						gurobi.populateNewModel(model);
@@ -122,7 +122,7 @@ public class Solver extends GRBCallback {
 //								System.out.printf("Arco(%d,%d) %s\n", vertex1.id, vertex2.id,
 //										g.findEdge(vertex1, vertex2));
 
-						// System.exit(0);
+						 //System.exit(0);
 
 						GRBVar[] fvars = model.getVars();
 						double[] x = model.get(GRB.DoubleAttr.X, fvars);
@@ -130,21 +130,21 @@ public class Solver extends GRBCallback {
 
 						for (int j = 0; j < fvars.length; j++) {
 							if (x[j] != 0.0) {
-								System.out.println(vnames[j] + " " + x[j]);
+								System.out.println(vnames[j] + "= " + x[j]);
 							}
 						}
-						if (!gurobi.checkSol(model))
-							System.out.println("Solução infatível");
+												
+						if (!gurobi.checkSol(model)) {//só para ter certeza!
+							System.out.println("Solução infatível");							
+						}
 //						System.out.println("maxSwitches " + gurobi.inst.parameters.getNumSwitches());
-
-						
+		
+	
 						logfile.close();
-						
+
 						model.dispose();
 						env.dispose();
-						
-						
-						
+
 						stok.nextToken();
 
 					}
@@ -571,45 +571,7 @@ public class Solver extends GRBCallback {
 		}
 	}
 
-	// Essas restricoes "apertam" o modelo
-	// RESTRICAO (6): fij <= theta_j + sum_{(j,k) \in A}(fjk) (all (i,j) in E)
-	// private void addConstraint6(GRBModel model) {
-	//
-	// try {
-	//
-	// GRBLinExpr constraint = new GRBLinExpr();
-	//
-	// Iterator<E> iterEdges = g.getEdges().iterator();
-	// while (iterEdges.hasNext()) {
-	//
-	// E edge = iterEdges.next();
-	//
-	// if (edge.status != SwitchType.PROT) {
-	//
-	// constraint.clear();
-	// constraint.addTerm(1.0, f[edge.idNoProt]);
-	//
-	// //arestas saindo do no
-	// Iterator<E> iterEdgesOut = g.getOutEdges(edge.node2).iterator();
-	// while (iterEdgesOut.hasNext()) {
-	// E outEdge = iterEdgesOut.next();
-	// if (outEdge.status != SwitchType.PROT)
-	// constraint.addTerm(-1.0, f[outEdge.idNoProt]);
-	// }
-	// model.addConstr(constraint, GRB.LESS_EQUAL, edge.node2.thetaR,
-	// "c6["+edge.node1.label+","+edge.node2.label+"]");
-	//
-	// }
-	//
-	// }
-	//
-	// } catch (GRBException e) {
-	// System.out.println("Error code: " + e.getErrorCode() + ". " +
-	// e.getMessage());
-	// }
-	//
-	// }
-
+	
 	private void populateNewModel(GRBModel model) {
 
 		try {
@@ -625,7 +587,6 @@ public class Solver extends GRBCallback {
 			model.set(GRB.IntParam.LazyConstraints, 1);
 			model.setCallback(this);
 
-
 			// Integrate new variables
 			model.update();
 
@@ -635,7 +596,7 @@ public class Solver extends GRBCallback {
 			this.addConstraint0(model);
 
 			// RESTRICAO (1): x^k_a + x^k_c <= 1 + x^k_b k \in K, {a, c \in A}, b \in P(a,c)
-			// this.addConstraint1(model);
+			//this.addConstraint1(model);
 
 			// RESTRICAO (2): de fronteira em y
 			// this.addConstraint2(model);
@@ -685,16 +646,15 @@ public class Solver extends GRBCallback {
 	@Override
 	protected void callback() {
 
-		try {
-
-			if (where == GRB.CB_MIPSOL) {
-				// Found an integer feasible solution - does it visit every node?
-
+		try {			
+			if (where == GRB.CB_MIPSOL) {				
+				// Found an integer feasible solution - does any connectivity constraint violated?
 				visitedEdges = new boolean[g.getEdgeCount()];
 				edgeGroup = new int[g.getEdgeCount()];
 				E firstInGroup[] = new E[inst.getParameters().getNumFI() + 1];
-
+				
 				double x_val[][] = getSolution(x);
+				
 				Iterator<E> iterEdges;
 
 				iterEdges = g.getEdges().iterator();
@@ -703,18 +663,14 @@ public class Solver extends GRBCallback {
 					for (int k = 0; k <= inst.parameters.getNumFI(); k++) {
 						if (x_val[edge.id][k] > 0.5) {
 							edgeGroup[edge.id] = k;
-							firstInGroup[k] = edge;
+							firstInGroup[k] = edge;							
 						}
 					}
 				}
-
+								
 				for (int k = 0; k <= inst.parameters.getNumFI(); k++) {
 
-					iterEdges = g.getEdges().iterator();
-					while (iterEdges.hasNext()) {
-						E edge = iterEdges.next();
-						visitedEdges[edge.id] = false;
-					}
+					Arrays.fill(visitedEdges, false);
 
 					E edgeA = firstInGroup[k];
 					if (edgeA != null) {
@@ -722,7 +678,7 @@ public class Solver extends GRBCallback {
 
 						// DFS no grupo k
 						checkConnectivity(root, k);
-
+						
 						// alguma aresta do grupo k não foi visitada pela DFS?
 						iterEdges = g.getEdges().iterator();
 						E edgeC = null;
@@ -733,13 +689,13 @@ public class Solver extends GRBCallback {
 								break; // encontrei
 							}
 						}
-
-						// inserir restricao
+						
+						// inserir restricao	
 						if (edgeC != null) {
-							iterEdges = getEdgesInPath(edgeA.node1, edgeC.node1).iterator();
+							iterEdges = getEdgesInPath(edgeA.node1, edgeC.node1).iterator();							
 							while (iterEdges.hasNext()) {
 								E edgeB = iterEdges.next();
-								if (edgeB == edgeA || edgeB == edgeC)
+								if (edgeGroup[edgeB.id] == k || edgeB == edgeA || edgeB == edgeC)
 									continue;
 								GRBLinExpr constraint = new GRBLinExpr();
 								constraint.addTerm(1, x[edgeA.id][k]);
@@ -752,20 +708,21 @@ public class Solver extends GRBCallback {
 								break;
 							}
 						}
-
 					}
 				}
+
 			}
+			
+			
 		} catch (GRBException e) {
 			System.out.println("Error code: " + e.getErrorCode() + ". " + e.getMessage());
 			e.printStackTrace();
-		}
-		catch (IOException e) {
+		} catch (IOException e) {
 			System.out.println("Can't write in file!: " + e.getMessage());
 			e.printStackTrace();
 		}
 	}
-	
+
 	private boolean checkSol(GRBModel model) {
 		try {
 			visitedEdges = new boolean[g.getEdgeCount()];
@@ -776,15 +733,14 @@ public class Solver extends GRBCallback {
 			GRBVar[] fvars = model.getVars();
 			double[] x = model.get(GRB.DoubleAttr.X, fvars);
 			String[] vnames = model.get(GRB.StringAttr.VarName, fvars);
-			//System.out.println(Arrays.toString(vnames));
 			
-			for (int i=0; i<vnames.length; i+=inst.getParameters().getNumFI()+1) {
+			for (int i = 0; i < vnames.length; i += inst.getParameters().getNumFI() + 1) {
 				int idx = Integer.valueOf(vnames[i].substring(2, vnames[i].indexOf(",")));
 				for (int k = 0; k <= inst.parameters.getNumFI(); k++) {
-					x_val[idx][k] = x[i+k];
+					x_val[idx][k] = x[i + k];
 				}
 			}
-			
+
 			Iterator<E> iterEdges;
 
 			iterEdges = g.getEdges().iterator();
@@ -798,32 +754,21 @@ public class Solver extends GRBCallback {
 				}
 			}
 
-//			for (E edge : g.getEdges()) {
-//				for (int k = 0; k <= inst.parameters.getNumFI(); k++)
-//					if (x_val[edge.id][k] != 0.0) {
-//						System.out.print("x[" + edge.id + "," + k + "]=" + x_val[edge.id][k] + " ");
-//					}
-//			}
-			//System.out.println();
-			//System.out.println(Arrays.toString(firstInGroup));
-
-			for (int k = 0; k <= inst.parameters.getNumFI(); k++) {
-
+			for (int k = 0; k <= inst.parameters.getNumFI(); k++) {				
+				Arrays.fill(visitedEdges, false);				
+				
 				E edgeA = firstInGroup[k];
+				
 				if (edgeA != null) {
 					V root = edgeA.node1;
-					// visited[root.id] = true;
-					//System.out.println("root: " + root.id);
 					// DFS no grupo k
 					checkConnectivity(root, k);
-					//System.out.println(Arrays.toString(visitedEdges));
 					// alguma aresta do grupo k não foi visitada pela DFS?
 					iterEdges = g.getEdges().iterator();
 					E edgeC = null;
 					while (iterEdges.hasNext()) {
 						edgeC = iterEdges.next();
-						if (edgeGroup[edgeC.id] == k && !visitedEdges[edgeC.id]) {
-							System.out.println("edgeC.id: " + edgeC.id);
+						if (edgeGroup[edgeC.id] == k && !visitedEdges[edgeC.id]) {							
 							return false; // encontrei
 						}
 					}
@@ -836,6 +781,5 @@ public class Solver extends GRBCallback {
 		}
 		return false;
 	}
-
 
 }
