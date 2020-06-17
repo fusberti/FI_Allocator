@@ -122,7 +122,7 @@ public class Solver extends GRBCallback {
 //								System.out.printf("Arco(%d,%d) %s\n", vertex1.id, vertex2.id,
 //										g.findEdge(vertex1, vertex2));
 
-						 //System.exit(0);
+						// System.exit(0);
 
 						GRBVar[] fvars = model.getVars();
 						double[] x = model.get(GRB.DoubleAttr.X, fvars);
@@ -133,13 +133,12 @@ public class Solver extends GRBCallback {
 								System.out.println(vnames[j] + "= " + x[j]);
 							}
 						}
-												
-						if (!gurobi.checkSol(model)) {//só para ter certeza!
-							System.out.println("Solução infatível");							
+
+						if (!gurobi.checkSol(model)) {// só para ter certeza!
+							System.out.println("Solução infatível");
 						}
 //						System.out.println("maxSwitches " + gurobi.inst.parameters.getNumSwitches());
-		
-	
+
 						logfile.close();
 
 						model.dispose();
@@ -571,7 +570,6 @@ public class Solver extends GRBCallback {
 		}
 	}
 
-	
 	private void populateNewModel(GRBModel model) {
 
 		try {
@@ -596,7 +594,7 @@ public class Solver extends GRBCallback {
 			this.addConstraint0(model);
 
 			// RESTRICAO (1): x^k_a + x^k_c <= 1 + x^k_b k \in K, {a, c \in A}, b \in P(a,c)
-			//this.addConstraint1(model);
+			// this.addConstraint1(model);
 
 			// RESTRICAO (2): de fronteira em y
 			// this.addConstraint2(model);
@@ -611,7 +609,7 @@ public class Solver extends GRBCallback {
 			// this.setContourVars(model);
 
 			// eliminação de simetria
-			// this.setSymmetryBreaking(model);
+			//this.setSymmetryBreaking(model);
 
 			// eliminação de simetria 2
 			this.setSymmetryBreaking2(model);
@@ -642,6 +640,71 @@ public class Solver extends GRBCallback {
 		}
 
 	}
+
+	private void integerSeparation() throws GRBException, IOException {
+
+		// Found an integer feasible solution - does any connectivity constraint
+		// violated?
+		visitedEdges = new boolean[g.getEdgeCount()];
+		edgeGroup = new int[g.getEdgeCount()];
+		E firstInGroup[] = new E[inst.getParameters().getNumFI() + 1];
+
+		double x_val[][] = getSolution(x);
+
+		Iterator<E> iterEdges;
+
+		iterEdges = g.getEdges().iterator();
+		while (iterEdges.hasNext()) {
+			E edge = iterEdges.next();
+			for (int k = 0; k <= inst.parameters.getNumFI(); k++) {
+				if (x_val[edge.id][k] > 0.5) {
+					edgeGroup[edge.id] = k;
+					firstInGroup[k] = edge;
+				}
+			}
+		}
+
+		for (int k = 0; k <= inst.parameters.getNumFI(); k++) {
+			Arrays.fill(visitedEdges, false);
+
+			E edgeA = firstInGroup[k];
+			if (edgeA != null) {
+				V root = edgeA.node1;
+
+				// DFS no grupo k
+				checkConnectivity(root, k);
+
+				// alguma aresta do grupo k não foi visitada pela DFS?
+				iterEdges = g.getEdges().iterator();
+				E edgeC = null;
+				while (iterEdges.hasNext()) {
+					E edge = iterEdges.next();
+					if (edgeGroup[edge.id] == k && !visitedEdges[edge.id]) {
+						edgeC = edge;
+						break; // encontrei
+					}
+				}
+
+				// inserir restricao
+				if (edgeC != null) {
+					iterEdges = getEdgesInPath(edgeA.node1, edgeC.node1).iterator();
+					while (iterEdges.hasNext()) {
+						E edgeB = iterEdges.next();
+						if (edgeGroup[edgeB.id] == k || edgeB == edgeA || edgeB == edgeC)
+							continue;
+						GRBLinExpr constraint = new GRBLinExpr();
+						constraint.addTerm(1, x[edgeA.id][k]);
+						constraint.addTerm(1, x[edgeC.id][k]);
+						constraint.addTerm(-1, x[edgeB.id][k]);
+						addLazy(constraint, GRB.LESS_EQUAL, 1);
+						logfile.write(count++ + ": c1_lazy_" + edgeA.id + "," + edgeB.id + "," + edgeC.id + "," + k + "\n");
+						//break;
+					}
+				}
+			}
+		}
+	}
+
 	
 	void checkConnectivityFractional(V root, int k, double x_val[][], E maxEdgeInGroup[]) {
 
@@ -658,235 +721,93 @@ public class Solver extends GRBCallback {
 				checkConnectivityFractional(next, k, x_val, maxEdgeInGroup);
 			}
 		}
-
-	}
-
-	private void integerSeparation() {
-		
-		try {				
-				// Found an integer feasible solution - does any connectivity constraint violated?
-				visitedEdges = new boolean[g.getEdgeCount()];
-				edgeGroup = new int[g.getEdgeCount()];
-				E firstInGroup[] = new E[inst.getParameters().getNumFI() + 1];
-				
-				double x_val[][] = getSolution(x);
-				
-				Iterator<E> iterEdges;
-
-				iterEdges = g.getEdges().iterator();
-				while (iterEdges.hasNext()) {
-					E edge = iterEdges.next();
-					for (int k = 0; k <= inst.parameters.getNumFI(); k++) {
-						if (x_val[edge.id][k] > 0.5) {
-							edgeGroup[edge.id] = k;
-							firstInGroup[k] = edge;							
-						}
-					}
-				}
-								
-				for (int k = 0; k <= inst.parameters.getNumFI(); k++) {
-
-					Arrays.fill(visitedEdges, false);
-
-					E edgeA = firstInGroup[k];
-					if (edgeA != null) {
-						V root = edgeA.node1;
-
-						// DFS no grupo k
-						checkConnectivity(root, k);
-						
-						// alguma aresta do grupo k não foi visitada pela DFS?
-						iterEdges = g.getEdges().iterator();
-						E edgeC = null;
-						while (iterEdges.hasNext()) {
-							E edge = iterEdges.next();
-							if (edgeGroup[edge.id] == k && !visitedEdges[edge.id]) {
-								edgeC = edge;
-								break; // encontrei
-							}
-						}
-						
-						// inserir restricao	
-						if (edgeC != null) {
-							iterEdges = getEdgesInPath(edgeA.node1, edgeC.node1).iterator();							
-							while (iterEdges.hasNext()) {
-								E edgeB = iterEdges.next();
-								if (edgeGroup[edgeB.id] == k || edgeB == edgeA || edgeB == edgeC)
-									continue;
-								GRBLinExpr constraint = new GRBLinExpr();
-								constraint.addTerm(1, x[edgeA.id][k]);
-								constraint.addTerm(1, x[edgeC.id][k]);
-								constraint.addTerm(-1, x[edgeB.id][k]);
-								addLazy(constraint, GRB.LESS_EQUAL, 1); // ,
-																		// "c1_lazy_"+edgeA.id+","+edgeB.id+","+edgeC.id+","+k);
-								logfile.write(count++ + ": c1_lazy_" + edgeA.id + "," + edgeB.id + "," + edgeC.id + ","
-										+ k + "\n");
-								break;
-							}
-						}
-					}
-			}
-			
-			
-		} catch (GRBException e) {
-			System.out.println("Error code: " + e.getErrorCode() + ". " + e.getMessage());
-			e.printStackTrace();
-		} catch (IOException e) {
-			System.out.println("Can't write in file!: " + e.getMessage());
-			e.printStackTrace();
-		}
 		
 	}
 	
-	private void fractionalSeparation() {
-		
-		try {				
-				// Found an integer feasible solution - does any connectivity constraint violated?
-				visitedEdges = new boolean[g.getEdgeCount()];
-				edgeGroup = new int[g.getEdgeCount()];
-				E firstInGroup[] = new E[inst.getParameters().getNumFI() + 1];
-				E maxEdgeInGroup[] = new E[inst.getParameters().getNumFI() + 1];
-				
-				double x_val[][] = getSolution(x);
-				
-				Iterator<E> iterEdges;
+	
+	private void fractionalSeparation() throws GRBException, IOException {		
+			// Found a fractional solution - does any connectivity constraint violated?
+			visitedEdges = new boolean[g.getEdgeCount()];
+			edgeGroup = new int[g.getEdgeCount()];
+			//E firstInGroup[] = new E[inst.getParameters().getNumFI() + 1];
+			E maxEdgeInGroup[] = new E[inst.getParameters().getNumFI() + 1];
+			E maxEdgeInGroupOutDFS[] = new E[inst.getParameters().getNumFI() + 1];
 
-				iterEdges = g.getEdges().iterator();
-				while (iterEdges.hasNext()) {
-					E edge = iterEdges.next();
-					for (int k = 0; k <= inst.parameters.getNumFI(); k++) {
-						if (x_val[edge.id][k] > 0.5) {
-							edgeGroup[edge.id] = k;
-							firstInGroup[k] = edge;	
+			double[][] x_val = getNodeRel(x);
+
+			Iterator<E> iterEdges;
+
+			iterEdges = g.getEdges().iterator();
+			while (iterEdges.hasNext()) {
+				E edge = iterEdges.next();
+				for (int k = 0; k <= inst.parameters.getNumFI(); k++) {
+					if (x_val[edge.id][k] > 0.0) {
+						edgeGroup[edge.id] = k;
+						//firstInGroup[k] = edge;
+						maxEdgeInGroup[k] = edge;
+					}
+				}
+			}
+
+			for (int k = 0; k <= inst.parameters.getNumFI(); k++) {
+
+				Arrays.fill(visitedEdges, false);
+
+				E edgeA = maxEdgeInGroup[k];
+				if (edgeA != null) {
+					V root = edgeA.node1;
+
+					// DFS no grupo k
+					checkConnectivityFractional(root, k, x_val, maxEdgeInGroup);
+
+					// escolher a aresta do grupo k não foi visitada pela DFS com maior valor de x_val
+					iterEdges = g.getEdges().iterator();
+					E edgeC = null;
+					while (iterEdges.hasNext()) {
+						E edge = iterEdges.next();
+						if (edgeGroup[edge.id] == k && !visitedEdges[edge.id]) {							
+							if (maxEdgeInGroupOutDFS[k]!=null && x_val[maxEdgeInGroup[k].id][k] < x_val[edge.id][k])								
+								maxEdgeInGroupOutDFS[k] = edge;							
+							else if (maxEdgeInGroupOutDFS[k] ==null)
+								maxEdgeInGroupOutDFS[k] = edge;							
+						}
+					}
+					edgeC = maxEdgeInGroupOutDFS[k];					
+					// inserir restricao
+					if (edgeC != null) {
+						iterEdges = getEdgesInPath(edgeA.node1, edgeC.node1).iterator();
+						while (iterEdges.hasNext()) {
+							E edgeB = iterEdges.next();
+							if (edgeB == edgeA || edgeB == edgeC || (x_val[edgeA.id][k]+x_val[edgeC.id][k] <= 1+x_val[edgeB.id][k]))
+								continue;
+							GRBLinExpr constraint = new GRBLinExpr();
+							constraint.addTerm(1, x[edgeA.id][k]);
+							constraint.addTerm(1, x[edgeC.id][k]);
+							constraint.addTerm(-1, x[edgeB.id][k]);
+							addLazy(constraint, GRB.LESS_EQUAL, 1); // ,
+																	// "c1_lazy_"+edgeA.id+","+edgeB.id+","+edgeC.id+","+k);
+							logfile.write(count++ + ": c1f_lazy_" + edgeA.id + "," + edgeB.id + "," + edgeC.id + "," + k
+									+ "\n");
+							break;
 						}
 					}
 				}
-								
-				for (int k = 0; k <= inst.parameters.getNumFI(); k++) {
-
-					Arrays.fill(visitedEdges, false);
-
-					E edgeA = firstInGroup[k];
-					if (edgeA != null) {
-						V root = edgeA.node1;
-
-						// DFS no grupo k
-						checkConnectivity(root, k);
-						
-						// alguma aresta do grupo k não foi visitada pela DFS?
-						iterEdges = g.getEdges().iterator();
-						E edgeC = null;
-						while (iterEdges.hasNext()) {
-							E edge = iterEdges.next();
-							if (edgeGroup[edge.id] == k && !visitedEdges[edge.id]) {
-								edgeC = edge;
-								break; // encontrei
-							}
-						}
-						
-						// inserir restricao	
-						if (edgeC != null) {
-							iterEdges = getEdgesInPath(edgeA.node1, edgeC.node1).iterator();							
-							while (iterEdges.hasNext()) {
-								E edgeB = iterEdges.next();
-								if (edgeGroup[edgeB.id] == k || edgeB == edgeA || edgeB == edgeC)
-									continue;
-								GRBLinExpr constraint = new GRBLinExpr();
-								constraint.addTerm(1, x[edgeA.id][k]);
-								constraint.addTerm(1, x[edgeC.id][k]);
-								constraint.addTerm(-1, x[edgeB.id][k]);
-								addLazy(constraint, GRB.LESS_EQUAL, 1); // ,
-																		// "c1_lazy_"+edgeA.id+","+edgeB.id+","+edgeC.id+","+k);
-								logfile.write(count++ + ": c1_lazy_" + edgeA.id + "," + edgeB.id + "," + edgeC.id + ","
-										+ k + "\n");
-								break;
-							}
-						}
-					}
-			}
-			
-			
-		} catch (GRBException e) {
-			System.out.println("Error code: " + e.getErrorCode() + ". " + e.getMessage());
-			e.printStackTrace();
-		} catch (IOException e) {
-			System.out.println("Can't write in file!: " + e.getMessage());
-			e.printStackTrace();
-		}
-		
+			}		
 	}
-	
+
 	@Override
 	protected void callback() {
-
-		try {			
-			if (where == GRB.CB_MIPSOL) {				
-				// Found an integer feasible solution - does any connectivity constraint violated?
-				visitedEdges = new boolean[g.getEdgeCount()];
-				edgeGroup = new int[g.getEdgeCount()];
-				E firstInGroup[] = new E[inst.getParameters().getNumFI() + 1];
-				
-				double x_val[][] = getSolution(x);
-				
-				Iterator<E> iterEdges;
-
-				iterEdges = g.getEdges().iterator();
-				while (iterEdges.hasNext()) {
-					E edge = iterEdges.next();
-					for (int k = 0; k <= inst.parameters.getNumFI(); k++) {
-						if (x_val[edge.id][k] > 0.5) {
-							edgeGroup[edge.id] = k;
-							firstInGroup[k] = edge;							
-						}
-					}
+		try {
+			if (where == GRB.CB_MIPSOL) {
+				// System.out.println("**** New node integer sol****");
+				integerSeparation();
+			} else if (where == GRB.CB_MIPNODE) {				
+				// MIP node callback
+				// System.out.println("**** New node fractional sol****");
+				if (getIntInfo(GRB.CB_MIPNODE_STATUS) == GRB.OPTIMAL) {					
+					 fractionalSeparation();
 				}
-								
-				for (int k = 0; k <= inst.parameters.getNumFI(); k++) {
-
-					Arrays.fill(visitedEdges, false);
-
-					E edgeA = firstInGroup[k];
-					if (edgeA != null) {
-						V root = edgeA.node1;
-
-						// DFS no grupo k
-						checkConnectivity(root, k);
-						
-						// alguma aresta do grupo k não foi visitada pela DFS?
-						iterEdges = g.getEdges().iterator();
-						E edgeC = null;
-						while (iterEdges.hasNext()) {
-							E edge = iterEdges.next();
-							if (edgeGroup[edge.id] == k && !visitedEdges[edge.id]) {
-								edgeC = edge;
-								break; // encontrei
-							}
-						}
-						
-						// inserir restricao	
-						if (edgeC != null) {
-							iterEdges = getEdgesInPath(edgeA.node1, edgeC.node1).iterator();							
-							while (iterEdges.hasNext()) {
-								E edgeB = iterEdges.next();
-								if (edgeGroup[edgeB.id] == k || edgeB == edgeA || edgeB == edgeC)
-									continue;
-								GRBLinExpr constraint = new GRBLinExpr();
-								constraint.addTerm(1, x[edgeA.id][k]);
-								constraint.addTerm(1, x[edgeC.id][k]);
-								constraint.addTerm(-1, x[edgeB.id][k]);
-								addLazy(constraint, GRB.LESS_EQUAL, 1); // ,
-																		// "c1_lazy_"+edgeA.id+","+edgeB.id+","+edgeC.id+","+k);
-								logfile.write(count++ + ": c1_lazy_" + edgeA.id + "," + edgeB.id + "," + edgeC.id + ","
-										+ k + "\n");
-								break;
-							}
-						}
-					}
-				}
-
 			}
-			
-			
 		} catch (GRBException e) {
 			System.out.println("Error code: " + e.getErrorCode() + ". " + e.getMessage());
 			e.printStackTrace();
@@ -906,7 +827,7 @@ public class Solver extends GRBCallback {
 			GRBVar[] fvars = model.getVars();
 			double[] x = model.get(GRB.DoubleAttr.X, fvars);
 			String[] vnames = model.get(GRB.StringAttr.VarName, fvars);
-			
+
 			for (int i = 0; i < vnames.length; i += inst.getParameters().getNumFI() + 1) {
 				int idx = Integer.valueOf(vnames[i].substring(2, vnames[i].indexOf(",")));
 				for (int k = 0; k <= inst.parameters.getNumFI(); k++) {
@@ -927,11 +848,11 @@ public class Solver extends GRBCallback {
 				}
 			}
 
-			for (int k = 0; k <= inst.parameters.getNumFI(); k++) {				
-				Arrays.fill(visitedEdges, false);				
-				
+			for (int k = 0; k <= inst.parameters.getNumFI(); k++) {
+				Arrays.fill(visitedEdges, false);
+
 				E edgeA = firstInGroup[k];
-				
+
 				if (edgeA != null) {
 					V root = edgeA.node1;
 					// DFS no grupo k
@@ -941,7 +862,7 @@ public class Solver extends GRBCallback {
 					E edgeC = null;
 					while (iterEdges.hasNext()) {
 						edgeC = iterEdges.next();
-						if (edgeGroup[edgeC.id] == k && !visitedEdges[edgeC.id]) {							
+						if (edgeGroup[edgeC.id] == k && !visitedEdges[edgeC.id]) {
 							return false; // encontrei
 						}
 					}
