@@ -46,7 +46,7 @@ import instances.Instance;
 import instances.networks.edges.E;
 import instances.networks.vertices.V;
 
-public class Solver extends GRBCallback {
+public class SolverEdgePartition extends GRBCallback {
 
 	public Instance inst;
 	public static Graph<V, E> g;
@@ -64,14 +64,14 @@ public class Solver extends GRBCallback {
 	private static FileWriter logfile;
 	private static int count;
 
-	public Solver(String filename) {
+	public SolverEdgePartition(String filename) {
 		this.inst = new Instance();
 		this.g = this.inst.net.getG();
 	}
 
 	public static void main(String[] args) {
 
-		Solver gurobi = null;
+		SolverEdgePartition gurobi = null;
 		String instanciaNome = null;
 
 		try {
@@ -89,7 +89,7 @@ public class Solver extends GRBCallback {
 
 						instanciaNome = stok.sval;
 
-						gurobi = new Solver("instancias/" + instanciaNome);
+						gurobi = new SolverEdgePartition("instancias/" + instanciaNome);
 
 						System.out.println(gurobi.getInst().getParameters().getInstanceName());
 
@@ -682,7 +682,7 @@ public class Solver extends GRBCallback {
 			this.addConstraint0(model);
 
 			// RESTRICAO (1): x^k_a + x^k_c <= 1 + x^k_b k \in K, {a, c \in A}, b \in P(a,c)
-			// this.addConstraint1(model);
+			//this.addConstraint1(model);
 
 			// RESTRICAO (2): de fronteira em y
 			// this.addConstraint2(model);

@@ -108,17 +108,29 @@ public class Network {
 	    	}
 	    	    	
     		//Aresta artificial -- da raiz do alimentador para todas as subestacoes    	
-	    	Iterator<V> iterNodes = g.getVertices().iterator();
-	    	while (iterNodes.hasNext()) {
-	    		
-	    		V node = iterNodes.next();
-	    		if (node.type == TYPES.SUBSTATION) {    		    	
-	    			E edge = new E(g.getEdgeCount(),this.root,node,true,numProt++,-1);
-			    	this.mapEdgeIndex.put(g.getEdgeCount(),edge);
-			    	g.addEdge(edge,this.root,node,EdgeType.DIRECTED);
-	    		}
-	    		
-	    	}
+//	    	Iterator<V> iterNodes = g.getVertices().iterator();
+//	    	while (iterNodes.hasNext()) {
+//	    		
+//	    		V node = iterNodes.next();
+//	    		if (node.type == TYPES.SUBSTATION) {    		    	
+//	    			E edge = new E(g.getEdgeCount(),this.root,node,true,numProt++,-1);
+//			    	this.mapEdgeIndex.put(g.getEdgeCount(),edge);
+//			    	g.addEdge(edge,this.root,node,EdgeType.DIRECTED);
+//	    		}
+//	    		
+//	    	}
+	    	
+			// Aresta artificial -- da raiz do alimentador para todas as subestacoes
+			Iterator<Map.Entry<Integer, V>> iterNodes = this.mapNodeIndex.entrySet().iterator();
+			while (iterNodes.hasNext()) {
+				Map.Entry<Integer, V> entry = iterNodes.next();
+				V node = entry.getValue();
+				if (node.type == TYPES.SUBSTATION) {
+					E edge = new E(g.getEdgeCount(), this.root, node, true, numProt++, -1);
+					this.mapEdgeIndex.put(g.getEdgeCount(), edge);
+					g.addEdge(edge, this.root, node, EdgeType.DIRECTED);
+				}
+			}
 	    	    	    	   	
 	    	for (int i=0;i<numE;i++) {
 	    		
