@@ -587,6 +587,12 @@ public class SolverPMedianHybrid extends GRBCallback {
 
 	}
 
+	
+	/** TODO
+	 * 
+	 * Tem que adaptar a integerSeparation para o modelo híbrido.
+	 * 
+	 */
 	private void integerSeparation() throws GRBException, IOException {
 
 		// Found an integer feasible solution - does any connectivity constraint
