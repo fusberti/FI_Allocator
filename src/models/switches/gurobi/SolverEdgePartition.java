@@ -1071,7 +1071,7 @@ public class SolverEdgePartition extends GRBCallback {
 	protected void callback() {
 		try {
 			if (where == GRB.CB_MIPSOL) {
-				// System.out.println("**** New node integer sol****");
+				//System.out.println("**** New node integer sol****");
 				//integerSeparation();
 				integerSeparationWithFI_Violation();
 			} else if (where == GRB.CB_MIPNODE) {				
