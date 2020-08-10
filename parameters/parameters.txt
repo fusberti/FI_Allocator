@@ -1,9 +1,9 @@
-"INSTANCE <filename.fi>" R3.fi
+"INSTANCE <filename.fi>" J3.fi
 "OBJECTIVE <ENS,SAIDI,COST>" ENS
 "COST OF ENERGY ($/KWh) <double [0,INF]>" 1.53
 "COST OF SWITCH ($/year) <double [0,INF]>" 1358
 "BREAKER FAILRATE (fails/year) <double [0,1]>" 0
-"MAXIMUM NUMBER OF SWITCHES <integer [0,INF]>" 2
+"MAXIMUM NUMBER OF SWITCHES <integer [0,INF]>" 1
 "MAXIMUM INVESTMENT ($) <double [0,INF]>" INF
 "MAXIMUM SAIDI (hours/year/customer) <double [0,INF]>" INF
 "MAXIMUM ENS (KWh/year) <double [0,INF]>" INF

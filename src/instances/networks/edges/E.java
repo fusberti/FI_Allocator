@@ -12,6 +12,8 @@ public class E {
 	public double p;
 	// fault indicator
 	public double dist; // km
+	public int iniSol_district;
+	public boolean iniSol_isCenter;
 
 	
 	public E(int id, V node1, V node2, boolean prot, int idProt, int idNoProt) {
