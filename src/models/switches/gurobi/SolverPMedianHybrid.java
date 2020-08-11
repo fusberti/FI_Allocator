@@ -20,10 +20,12 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.ListIterator;
-import java.util.stream.Collectors;
+import java.util.Map;
+import java.util.Map.Entry;
 
 import edu.uci.ics.jung.graph.Graph;
 import gurobi.GRB;
@@ -103,7 +105,7 @@ public class SolverPMedianHybrid extends GRBCallback {
 
 						// Write model to file
 						model.write("FI_Allocation.lp");
-
+						
 						model.optimize();
 
 						System.out.println("Obj: " + model.get(GRB.DoubleAttr.ObjVal));
@@ -538,36 +540,54 @@ public class SolverPMedianHybrid extends GRBCallback {
 		}
 	}
 	
+	private void printInitialSolution() {
+		for (int k = 0; k <= inst.getParameters().getNumFI(); k++) {
+			Iterator<E> iterEdges = g.getEdges().iterator();
+			System.out.print(k + ": ");
+			while (iterEdges.hasNext()) {
+				E edge = iterEdges.next();
+				if (edge.iniSol_district == k && edge.iniSol_isCenter)
+					System.out.print("["+ edge.id + "] ");
+				else if (edge.iniSol_district == k)
+					System.out.print(edge.id + " ");
+			}
+			System.out.println();
+		}
+	}
+	
 	// must call createValidSymmetryInitialSolution previously
 	private void setInitialSolution(GRBModel model, String filename) {
-		
+		boolean initSol = false;
 		try {
-		
 			// LEITURA DA SOLUCAO INICIAL
-			
-			/*
-			 * Reader r = new BufferedReader(new FileReader(filename + ".sol"));
-			 * StreamTokenizer stok = new StreamTokenizer(r);
-			 * 
-			 * stok.nextToken(); //segue coletando ate chegar na linha do problema String
-			 * token = stok.sval; while (token.compareTo("p") != 0) {
-			 * 
-			 * stok.nextToken(); token = stok.sval; if (token == null) token = "";
-			 * 
-			 * }
-			 * 
-			 * stok.nextToken(); //coleta "chaves"
-			 * 
-			 * stok.nextToken(); //numero de nos numV = (int) stok.nval;
-			 */
-    	
+			BufferedReader reader = new BufferedReader(new FileReader(filename + ".sol"));
+			String line;
+			int k=0;
+			while((line = reader.readLine())!=null) {
+				String[] edgeIds = line.split(" ");				
+				for(String strId : edgeIds) {
+					int id = Integer.parseInt(strId);
+					this.inst.net.getMapEdgeIndex().get(id).iniSol_district = k;
+				}
+				k++;
+			}
+			reader.close();
+			initSol = true;
 		} catch (Exception e) {
 			System.err.println("Não há arquivo com solução inicial");
 			e.printStackTrace();
 		}	
     	
+		if (!initSol)
+			return;
 		
+		System.out.println("Setting initial solution...");
+		
+		//printInitialSolution();
 		createValidSymmetryInitialSolution();
+		
+		//System.out.println();
+		printInitialSolution();
 		
 		try {
 			
@@ -596,53 +616,107 @@ public class SolverPMedianHybrid extends GRBCallback {
 			System.out.println("Error code: " + e.getErrorCode() + ". " + e.getMessage());
 		}
 	}
+
 	
 	private void createValidSymmetryInitialSolution() {
-			
-			Iterator<E> iterEdges;
-			int districts[] = new int[g.getEdgeCount()];
-			
-			iterEdges = g.getEdges().iterator();				
-			while (iterEdges.hasNext()) {
-				E edge = iterEdges.next();
-				districts[edge.id] = edge.iniSol_district;
-			}
-			
-			// Primeiro resolver a simetria externa
-			int k_new = -1;
-			for (int e = g.getEdgeCount()-1; e >= 0; e--) {
-				int k_old = districts[e];
-				if (k_old > k_new) {
-					k_new++;
-					for (int e2 = 0; e2 < g.getEdgeCount(); e2++) {
-						int aux = districts[e2];
-						if (aux == k_old) {
-							districts[e2] = k_new;
-						} else if (aux == k_new) {
-							districts[e2] = k_old;
-						}
+		
+		Iterator<E> iterEdges;
+		int districts[] = new int[g.getEdgeCount()];
+		
+		iterEdges = g.getEdges().iterator();				
+		while (iterEdges.hasNext()) {
+			E edge = iterEdges.next();
+			districts[edge.id] = edge.iniSol_district;
+		}
+		
+		// Primeiro resolver a simetria externa
+//		int k_new = -1;
+		int k_new = inst.getParameters().getNumFI()+1;
+		for (int e = g.getEdgeCount()-1; e >= 0; e--) {
+//		for (int e = 0; e <g.getEdgeCount(); e++) {
+			int k_old = districts[e];
+			if (k_old < k_new) {
+				k_new--;
+				for (int e2 = 0; e2 < g.getEdgeCount(); e2++) {
+				//for (int e2 = g.getEdgeCount()-1; e2 >=0; e2--) {
+					int aux = districts[e2];
+					if (aux == k_old) {
+						districts[e2] = k_new;
+					} else if (aux == k_new) {
+						districts[e2] = k_old;
 					}
 				}
 			}
-			// distritos atualizados
-			iterEdges = g.getEdges().iterator();				
-			while (iterEdges.hasNext()) {
-				E edge = iterEdges.next();
-				edge.iniSol_district = districts[edge.id];
+		}
+		// distritos atualizados
+		iterEdges = g.getEdges().iterator();				
+		while (iterEdges.hasNext()) {
+			E edge = iterEdges.next();
+			edge.iniSol_district = districts[edge.id];
+		}
+		
+		
+		// Agora resolver a simetria interna
+		// Primeiro resolver a simetria externa
+		// int k = 0;
+		int k = inst.getParameters().getNumFI();
+		for (int e = g.getEdgeCount()-1; e >= 0; e--) {
+			if (districts[e] == k) {
+				this.inst.net.getMapEdgeIndex().get(e).iniSol_isCenter = true;
+				k--;
 			}
-			
-			
-			// Agora resolver a simetria interna
-			// Primeiro resolver a simetria externa
-			int k = 0;
-			for (int e = g.getEdgeCount()-1; e >= 0; e--) {
-				if (districts[e] == k) {
-					this.inst.net.getMapEdgeIndex().get(e).iniSol_isCenter = true;
-					k++;
-				}
-			}
-			
-	}
+		}
+		
+}
+
+	
+//	private void createValidSymmetryInitialSolution() {
+//			
+//			Iterator<E> iterEdges;
+//			int districts[] = new int[g.getEdgeCount()];
+//			
+//			iterEdges = g.getEdges().iterator();				
+//			while (iterEdges.hasNext()) {
+//				E edge = iterEdges.next();
+//				districts[edge.id] = edge.iniSol_district;
+//			}
+//			
+//			// Primeiro resolver a simetria externa
+//			int k_new = -1;
+//			for (int e = g.getEdgeCount()-1; e >= 0; e--) {
+//				int k_old = districts[e];
+//				if (k_old > k_new) {
+//					k_new++;
+//					for (int e2 = 0; e2 < g.getEdgeCount(); e2++) {
+//						int aux = districts[e2];
+//						if (aux == k_old) {
+//							districts[e2] = k_new;
+//						} else if (aux == k_new) {
+//							districts[e2] = k_old;
+//						}
+//					}
+//				}
+//			}
+//			// distritos atualizados
+//			iterEdges = g.getEdges().iterator();				
+//			while (iterEdges.hasNext()) {
+//				E edge = iterEdges.next();
+//				edge.iniSol_district = districts[edge.id];
+//			}
+//			
+//			
+//			// Agora resolver a simetria interna
+//			// Primeiro resolver a simetria externa
+//			int k = 0;
+//			for (int e = g.getEdgeCount()-1; e >= 0; e--) {
+//				if (districts[e] == k) {
+//					this.inst.net.getMapEdgeIndex().get(e).iniSol_isCenter = true;
+//					k++;
+//				}
+//			}
+//			
+//	}
+
 
 	private void populateNewModel(GRBModel model) {
 
@@ -657,6 +731,8 @@ public class SolverPMedianHybrid extends GRBCallback {
 			this.defineVarW(model, 3, ofexpr);
 			this.generateOF(model, ofexpr);
 
+//			this.setInitialSolution(model, this.getInst().getParameters().getInstanceName());
+			
 			model.set(GRB.IntParam.LazyConstraints, 1);
 			model.setCallback(this);
 			
@@ -685,13 +761,15 @@ public class SolverPMedianHybrid extends GRBCallback {
 							
 			//eliminação de simetria interna
 			this.setInternalSymmetryBreaking(model);
-			
-			//eliminação de simetria externa
+//			
+//			//eliminação de simetria externa
 			this.setExternalSymmetryBreaking(model);
-			
-			//eliminação de VIE simetria 
+//			
+//			//eliminação de VIE simetria 
 			this.setVIESymmetryBreaking(model);
 
+			this.setInitialSolution(model, "inisols/" + this.getInst().getParameters().getInstanceName());
+			
 			model.update();
 
 		} catch (GRBException e) {
