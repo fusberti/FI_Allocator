@@ -945,21 +945,21 @@ public class SolverEdgePartition extends GRBCallback {
 		}
 		
 		int countGroup[][] = new int[g.getVertexCount()][inst.getParameters().getNumFI() + 1];
+		boolean visited[] = new boolean[g.getVertexCount()];
 		iterEdges = g.getEdges().iterator();
 		while (iterEdges.hasNext()) {
 			E edge = iterEdges.next();
 			V node = edge.node1;
 			
-			int degree = g.getIncidentEdges(node).size();
-			
+			int degree = g.getIncidentEdges(node).size();			
 			
 			if (degree >= 4) {
 				Iterator<E> iterIncEdges = g.getIncidentEdges(node).iterator();
-				while (iterIncEdges.hasNext()) {
+				while (iterIncEdges.hasNext() && !visited[node.id]) {//Não pode contar novamente se foi visitado antes!
 					E incEdge = iterIncEdges.next(); 
 					countGroup[node.id][edgeGroup[incEdge.id]]++;
 				}
-				
+				visited[node.id] = true;
 				int k1, k2;
 				for (k1 = 0; k1 <= inst.parameters.getNumFI(); k1++) {
 					if (countGroup[node.id][k1] >= 2) {

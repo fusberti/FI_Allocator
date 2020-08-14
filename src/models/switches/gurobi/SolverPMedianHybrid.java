@@ -601,6 +601,7 @@ public class SolverPMedianHybrid extends GRBCallback {
 				for (int k = 0; k <= inst.getParameters().getNumFI(); k++) {
 					x[edge.id][k].set(GRB.DoubleAttr.Start, 0.0);
 					c[edge.id][k].set(GRB.DoubleAttr.Start, 0.0);
+					w[edge.id][k].set(GRB.DoubleAttr.Start, GRB.UNDEFINED);
 				}
 			}
 
@@ -621,26 +622,26 @@ public class SolverPMedianHybrid extends GRBCallback {
 
 	
 	private void createValidSymmetryInitialSolution() {
-		
+
 		Iterator<E> iterEdges;
 		int districts[] = new int[g.getEdgeCount()];
-		
-		iterEdges = g.getEdges().iterator();				
+
+		iterEdges = g.getEdges().iterator();
 		while (iterEdges.hasNext()) {
 			E edge = iterEdges.next();
 			districts[edge.id] = edge.iniSol_district;
 		}
-		
+
 		// Primeiro resolver a simetria externa
 //		int k_new = -1;
-		int k_new = inst.getParameters().getNumFI()+1;
-		for (int e = g.getEdgeCount()-1; e >= 0; e--) {
+		int k_new = inst.getParameters().getNumFI() + 1;
+		for (int e = g.getEdgeCount() - 1; e >= 0; e--) {
 //		for (int e = 0; e <g.getEdgeCount(); e++) {
 			int k_old = districts[e];
 			if (k_old < k_new) {
 				k_new--;
 				for (int e2 = 0; e2 < g.getEdgeCount(); e2++) {
-				//for (int e2 = g.getEdgeCount()-1; e2 >=0; e2--) {
+					// for (int e2 = g.getEdgeCount()-1; e2 >=0; e2--) {
 					int aux = districts[e2];
 					if (aux == k_old) {
 						districts[e2] = k_new;
@@ -651,75 +652,50 @@ public class SolverPMedianHybrid extends GRBCallback {
 			}
 		}
 		// distritos atualizados
-		iterEdges = g.getEdges().iterator();				
+		iterEdges = g.getEdges().iterator();
 		while (iterEdges.hasNext()) {
 			E edge = iterEdges.next();
 			edge.iniSol_district = districts[edge.id];
 		}
-		
-		
+
 		// Agora resolver a simetria interna
 		// Primeiro resolver a simetria externa
 		// int k = 0;
 		int k = inst.getParameters().getNumFI();
-		for (int e = g.getEdgeCount()-1; e >= 0; e--) {
+		for (int e = g.getEdgeCount() - 1; e >= 0; e--) {
 			if (districts[e] == k) {
 				this.inst.net.getMapEdgeIndex().get(e).iniSol_isCenter = true;
 				k--;
 			}
 		}
-		
-}
 
+	}
 	
-//	private void createValidSymmetryInitialSolution() {
-//			
-//			Iterator<E> iterEdges;
-//			int districts[] = new int[g.getEdgeCount()];
-//			
-//			iterEdges = g.getEdges().iterator();				
-//			while (iterEdges.hasNext()) {
-//				E edge = iterEdges.next();
-//				districts[edge.id] = edge.iniSol_district;
+	
+//	private void setHeuristicSolution() throws GRBException{
+//		//setSolution(vars, x); aqui para passar uma solução inicial? vars=x e c, x=valores de x e c
+//		Iterator<E> iterEdges;
+//		double[] values;
+//		values = new double[g.getEdgeCount()*inst.getParameters().getNumFI()*3];
+//		
+//		iterEdges = g.getEdges().iterator();				
+//		while (iterEdges.hasNext()) {
+//			E edge = iterEdges.next();
+//			int k = edge.iniSol_district;
+//			values[edge.id*inst.getParameters().getNumFI() + k] = 1.0;
+//			if (edge.iniSol_isCenter) {
+//				values[2*edge.id*inst.getParameters().getNumFI() + k] = 1.0;
 //			}
-//			
-//			// Primeiro resolver a simetria externa
-//			int k_new = -1;
-//			for (int e = g.getEdgeCount()-1; e >= 0; e--) {
-//				int k_old = districts[e];
-//				if (k_old > k_new) {
-//					k_new++;
-//					for (int e2 = 0; e2 < g.getEdgeCount(); e2++) {
-//						int aux = districts[e2];
-//						if (aux == k_old) {
-//							districts[e2] = k_new;
-//						} else if (aux == k_new) {
-//							districts[e2] = k_old;
-//						}
-//					}
-//				}
-//			}
-//			// distritos atualizados
-//			iterEdges = g.getEdges().iterator();				
-//			while (iterEdges.hasNext()) {
-//				E edge = iterEdges.next();
-//				edge.iniSol_district = districts[edge.id];
-//			}
-//			
-//			
-//			// Agora resolver a simetria interna
-//			// Primeiro resolver a simetria externa
-//			int k = 0;
-//			for (int e = g.getEdgeCount()-1; e >= 0; e--) {
-//				if (districts[e] == k) {
-//					this.inst.net.getMapEdgeIndex().get(e).iniSol_isCenter = true;
-//					k++;
-//				}
-//			}
-//			
+//		}
+//		GRBVar[] vars = model.getVars();
+//
+//		//System.out.println("objective: " + getDoubleInfo(GRB.CB_MIPNODE_OBJBST));
+//		if (getDoubleInfo(GRB.CB_MIPNODE_OBJBST) > 16241.0) {
+//			System.out.println("Setting sol...");
+//			setSolution(vars, values);		
+//		}
 //	}
-
-
+	
 	private void populateNewModel(GRBModel model) {
 
 		try {
@@ -936,6 +912,7 @@ public class SolverPMedianHybrid extends GRBCallback {
 		}
 		
 		int countGroup[][] = new int[g.getVertexCount()][inst.getParameters().getNumFI() + 1];
+		boolean visited[] = new boolean[g.getVertexCount()];
 		iterEdges = g.getEdges().iterator();
 		while (iterEdges.hasNext()) {
 			E edge = iterEdges.next();
@@ -943,14 +920,13 @@ public class SolverPMedianHybrid extends GRBCallback {
 			
 			int degree = g.getIncidentEdges(node).size();
 			
-			
-			if (degree >= 4) {
+			if (degree >= 4 ) {								
 				Iterator<E> iterIncEdges = g.getIncidentEdges(node).iterator();
-				while (iterIncEdges.hasNext()) {
+				while (iterIncEdges.hasNext() && !visited[node.id]) {//Não pode contar novamente se foi visitado antes!
 					E incEdge = iterIncEdges.next(); 
-					countGroup[node.id][edgeGroup[incEdge.id]]++;
+					countGroup[node.id][edgeGroup[incEdge.id]]++;					
 				}
-				
+				visited[node.id] = true;
 				int k1, k2;
 				for (k1 = 0; k1 <= inst.parameters.getNumFI(); k1++) {
 					if (countGroup[node.id][k1] >= 2) {
@@ -973,8 +949,9 @@ public class SolverPMedianHybrid extends GRBCallback {
 					E incEdge = iterIncEdges.next(); 
 					constraint.addTerm(-1, x[incEdge.id][k1]);
 				}
+				
 				addLazy(constraint, GRB.GREATER_EQUAL, -1);
-				logfile.write(count++ + "c4_lazy_" + edge.id + "," + k1 + "\n");
+				logfile.write(count++ + ": c4_lazy_" + edge.id + "," + k1 + "\n");
 				
 				constraint.clear();
 				constraint.addTerm(degree-1, w[edge.id][k2]);
@@ -984,17 +961,16 @@ public class SolverPMedianHybrid extends GRBCallback {
 					constraint.addTerm(-1, x[incEdge.id][k2]);
 				}
 				addLazy(constraint, GRB.GREATER_EQUAL, -1);
-				logfile.write(count++ + "c4_lazy_" + edge.id + "," + k2 + "\n");
+				logfile.write(count++ + ": c4_lazy_" + edge.id + "," + k2 + "\n");
 				
 				constraint.clear();
 				constraint.addTerm(1, w[edge.id][k1]);
 				constraint.addTerm(1, w[edge.id][k2]);
 				addLazy(constraint, GRB.LESS_EQUAL, 1);
-				logfile.write(count++ + "c5_lazy_" + edge.id + "," + k1 + "," + k2 + "\n");
+				logfile.write(count++ + ": c5_lazy_" + edge.id + "," + k1 + "," + k2 + "\n");
 			}
 
 		}
-		
 	}
 	
 	
@@ -1014,8 +990,7 @@ public class SolverPMedianHybrid extends GRBCallback {
 			}
 		}
 		
-	}
-	
+	}	
 	
 	@Override
 	protected void callback() {
@@ -1026,11 +1001,12 @@ public class SolverPMedianHybrid extends GRBCallback {
 				integerSeparationWithFI_Violation();
 			} else if (where == GRB.CB_MIPNODE) {				
 				// MIP node callback
-				// System.out.println("**** New node fractional sol****");
-				if (getIntInfo(GRB.CB_MIPNODE_STATUS) == GRB.OPTIMAL) {					
+				//System.out.println("**** New node fractional sol****");
+				if (getIntInfo(GRB.CB_MIPNODE_STATUS) == GRB.OPTIMAL) {	
+					//System.out.println("**** New node fractional sol****");
 					//fractionalSeparation();
 					//exactFractionalSeparation();		
-					//setSolution(vars, x); aqui para passar uma solução inicial? vars=x e c, x=valores de x e c
+					//setHeuristicSolution();
 				}
 			}
 		} catch (GRBException e) {
