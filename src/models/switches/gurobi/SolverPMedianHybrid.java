@@ -1,9 +1,9 @@
 /*
- * Modelo de aloca√ß√£o de sinalizadores para redes de distribui√ß√£o de energia
+ * Modelo de alocaÁ„o de sinalizadores para redes de distribuiÁ„o de energia
  * 
  * Ideias para futuro: 
- * - avaliar o impacto economico da aloca√ß√£o de sinalizadores, ou seja, a quantidade de sinalizadores
- * passa a ser uma vari√°vel do modelo. 
+ * - avaliar o impacto economico da alocaÁ„o de sinalizadores, ou seja, a quantidade de sinalizadores
+ * passa a ser uma vari·vel do modelo. 
  * 
  */
 
@@ -29,6 +29,7 @@ import java.util.Map.Entry;
 
 import edu.uci.ics.jung.graph.Graph;
 import gurobi.GRB;
+import gurobi.GRB.IntParam;
 import gurobi.GRBCallback;
 import gurobi.GRBEnv;
 import gurobi.GRBException;
@@ -95,10 +96,11 @@ public class SolverPMedianHybrid extends GRBCallback {
 
 						env = new GRBEnv("mip1.log");
 						model = new GRBModel(env);
+						model.set(IntParam.StartNodeLimit, 2000000000);
 
 						// Open log file for callbacks
 						logfile = new FileWriter("callback.log");
-
+						
 						// Configura os parametros do solver Gurobi
 						new GurobiParameters(model);
 						gurobi.populateNewModel(model);
@@ -134,8 +136,8 @@ public class SolverPMedianHybrid extends GRBCallback {
 							}
 						}
 
-						if (!gurobi.checkSol(model)) {// s√≥ para ter certeza!
-							System.out.println("Solu√ß√£o infat√≠vel");
+						if (!gurobi.checkSol(model)) {// sÛ para ter certeza!
+							System.out.println("SoluÁ„o infatÌvel");
 						}
 //						System.out.println("maxSwitches " + gurobi.inst.parameters.getNumSwitches());
 
@@ -376,7 +378,7 @@ public class SolverPMedianHybrid extends GRBCallback {
 	}
 
 	// RESTRICAO (2): x^k_a + x^k_c <= 1 + x^k_b k \in K, {a, c \in A}, b \in P(a,c)
-	// Conectividade de cada grupo. Se existir uma aresta "a" no grupo "k", ent√£o toda
+	// Conectividade de cada grupo. Se existir uma aresta "a" no grupo "k", ent„o toda
 	// aresta "b" no caminho de "a" ate o centro de "k" deve fazer parte do mesmo grupo.
 	private void addConstraint3(GRBModel model) {
 		try {
@@ -446,7 +448,7 @@ public class SolverPMedianHybrid extends GRBCallback {
 	}
 	
 	// w^k1_i + w^k2_i <= 1
-	// impede que dois pares de arcos de cores diferentes co-existam no mesmo v√©rtice
+	// impede que dois pares de arcos de cores diferentes co-existam no mesmo vÈrtice
 	private void addConstraint5(GRBModel model) {
 		try {
 			GRBLinExpr constraint = new GRBLinExpr();
@@ -560,7 +562,7 @@ public class SolverPMedianHybrid extends GRBCallback {
 		boolean initSol = false;
 		try {
 			// LEITURA DA SOLUCAO INICIAL
-			BufferedReader reader = new BufferedReader(new FileReader(filename + ".sol"));
+			BufferedReader reader = new BufferedReader(new FileReader(filename + ".sol." + inst.getParameters().getNumFI()));
 			String line;
 			int k=0;
 			while((line = reader.readLine())!=null) {
@@ -574,7 +576,7 @@ public class SolverPMedianHybrid extends GRBCallback {
 			reader.close();
 			initSol = true;
 		} catch (Exception e) {
-			System.err.println("N√£o h√° arquivo com solu√ß√£o inicial");
+			System.err.println("N„o h· arquivo com soluÁ„o inicial");
 			e.printStackTrace();
 		}	
     	
@@ -759,13 +761,13 @@ public class SolverPMedianHybrid extends GRBCallback {
 			// RESTRICAO (5)
 			//this.addConstraint5(model);
 							
-			//elimina√ß√£o de simetria interna
+			//eliminaÁ„o de simetria interna
 			this.setInternalSymmetryBreaking(model);
 //			
-//			//elimina√ß√£o de simetria externa
+//			//eliminaÁ„o de simetria externa
 			this.setExternalSymmetryBreaking(model);
 //			
-//			//elimina√ß√£o de VIE simetria 
+//			//eliminaÁ„o de VIE simetria 
 			this.setVIESymmetryBreaking(model);
 
 			this.setInitialSolution(model, "inisols/" + this.getInst().getParameters().getInstanceName());
@@ -800,7 +802,7 @@ public class SolverPMedianHybrid extends GRBCallback {
 	
 	/** TODO
 	 * 
-	 * Tem que adaptar a integerSeparation para o modelo h√≠brido.
+	 * Tem que adaptar a integerSeparation para o modelo hÌbrido.
 	 * 
 	 */
 	private void integerSeparation() throws GRBException, IOException {
@@ -836,7 +838,7 @@ public class SolverPMedianHybrid extends GRBCallback {
 				// DFS no grupo k
 				checkConnectivity(root, k);
 
-				// alguma aresta do grupo k n√£o foi visitada pela DFS?
+				// alguma aresta do grupo k n„o foi visitada pela DFS?
 				iterEdges = g.getEdges().iterator();
 				E edgeC = null;
 				while (iterEdges.hasNext()) {
@@ -903,7 +905,7 @@ public class SolverPMedianHybrid extends GRBCallback {
 				// DFS no grupo k
 				checkConnectivity(root, k);
 
-				// alguma aresta do grupo k n√£o foi visitada pela DFS?
+				// alguma aresta do grupo k n„o foi visitada pela DFS?
 				iterEdges = g.getEdges().iterator();
 				E edgeA = null;
 				while (iterEdges.hasNext()) {
@@ -1027,7 +1029,8 @@ public class SolverPMedianHybrid extends GRBCallback {
 				// System.out.println("**** New node fractional sol****");
 				if (getIntInfo(GRB.CB_MIPNODE_STATUS) == GRB.OPTIMAL) {					
 					//fractionalSeparation();
-					//exactFractionalSeparation();
+					//exactFractionalSeparation();		
+					//setSolution(vars, x); aqui para passar uma soluÁ„o inicial? vars=x e c, x=valores de x e c
 				}
 			}
 		} catch (GRBException e) {
@@ -1080,7 +1083,7 @@ public class SolverPMedianHybrid extends GRBCallback {
 					V root = edgeA.node1;
 					// DFS no grupo k
 					checkConnectivity(root, k);
-					// alguma aresta do grupo k n√£o foi visitada pela DFS?
+					// alguma aresta do grupo k n„o foi visitada pela DFS?
 					iterEdges = g.getEdges().iterator();
 					E edgeC = null;
 					while (iterEdges.hasNext()) {

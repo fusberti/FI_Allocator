@@ -20,6 +20,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.Iterator;
 import java.util.List;
 import java.util.ListIterator;
@@ -45,6 +46,13 @@ import gurobi.GRBVar;
 import instances.Instance;
 import instances.networks.edges.E;
 import instances.networks.vertices.V;
+
+class OrdenaPorId implements Comparator<E>{
+	public int compare(E edge1, E edge2) {
+		return edge1.id - edge2.id;
+	}
+}
+
 
 public class SolverEdgePartition extends GRBCallback {
 
@@ -102,7 +110,7 @@ public class SolverEdgePartition extends GRBCallback {
 						// Configura os parametros do solver Gurobi
 						new GurobiParameters(model);
 						gurobi.populateNewModel(model);
-
+						
 						// Write model to file
 						model.write("FI_Allocation.lp");
 
@@ -657,6 +665,77 @@ public class SolverEdgePartition extends GRBCallback {
 		}
 	}
 
+	private void printInitialSolution() {
+		for (int k = 0; k <= inst.getParameters().getNumFI(); k++) {
+			Iterator<E> iterEdges = g.getEdges().iterator();
+			System.out.print(k + ": ");
+			while (iterEdges.hasNext()) {
+				E edge = iterEdges.next();
+				if (edge.iniSol_district == k && edge.iniSol_isCenter)
+					System.out.print("["+ edge.id + "] ");
+				else if (edge.iniSol_district == k)
+					System.out.print(edge.id + " ");
+			}
+			System.out.println();
+		}
+	}
+	// must call createValidSymmetryInitialSolution previously
+	private void setInitialSolution(GRBModel model, String filename) {
+		boolean initSol = false;
+		try {
+			// LEITURA DA SOLUCAO INICIAL
+			BufferedReader reader = new BufferedReader(new FileReader(filename + ".sol." + inst.getParameters().getNumFI()));
+			String line;
+			int k=0;
+			while((line = reader.readLine())!=null) {
+				String[] edgeIds = line.split(" ");				
+				for(String strId : edgeIds) {
+					int id = Integer.parseInt(strId);
+					this.inst.net.getMapEdgeIndex().get(id).iniSol_district = k;
+				}
+				k++;
+			}
+			reader.close();
+			initSol = true;
+		} catch (Exception e) {
+			System.err.println("Não há arquivo com solução inicial");
+			e.printStackTrace();
+		}	
+    	
+		if (!initSol)
+			return;
+		
+		System.out.println("Setting initial solution...");
+		
+
+		//System.out.println();
+		printInitialSolution();
+		
+		try {
+			
+			Iterator<E> iterEdges;
+			
+			iterEdges = g.getEdges().iterator();				
+			while (iterEdges.hasNext()) {
+				E edge = iterEdges.next();
+				for (int k = 0; k <= inst.getParameters().getNumFI(); k++) {
+					x[edge.id][k].set(GRB.DoubleAttr.Start, 0.0);
+				}
+			}
+
+			iterEdges = g.getEdges().iterator();				
+			while (iterEdges.hasNext()) {
+				E edge = iterEdges.next();
+				int k = edge.iniSol_district;
+				x[edge.id][k].set(GRB.DoubleAttr.Start, 1.0);
+			}		
+			
+		} catch (GRBException e) {
+			System.out.println("Error code: " + e.getErrorCode() + ". " + e.getMessage());
+		}
+	}
+
+
 	private void populateNewModel(GRBModel model) {
 
 		try {
@@ -685,7 +764,7 @@ public class SolverEdgePartition extends GRBCallback {
 			//this.addConstraint1(model);
 
 			// RESTRICAO (2): de fronteira em y
-			// this.addConstraint2(model);
+			//this.addConstraint2(model);
 
 			// RESTRICAO (3): de fronteira em z
 			// this.addConstraint3(model);
@@ -707,6 +786,9 @@ public class SolverEdgePartition extends GRBCallback {
 
 			// eliminação de simetria 2
 			//this.setSymmetryBreaking2(model);
+			
+			this.setInitialSolution(model, "inisols/" + this.getInst().getParameters().getInstanceName());
+
 
 			model.update();
 

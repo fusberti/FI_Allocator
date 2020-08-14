@@ -1,4 +1,4 @@
-"INSTANCE <filename.fi>" R3.fi
+"INSTANCE <filename.fi>" J3.fi
 "OBJECTIVE <ENS,SAIDI,COST>" ENS
 "COST OF ENERGY ($/KWh) <double [0,INF]>" 1.53
 "COST OF SWITCH ($/year) <double [0,INF]>" 1358
