@@ -1,0 +1,3 @@
+p fi <nodes> <edges> <velocity> <failure rate per year km>
+v <num_node> <x_coord> <y_coord>
+e <src_node> <tgt_node> <distance>

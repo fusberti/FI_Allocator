@@ -1,0 +1,12 @@
+Experimentos computacionais:
+
+- Converter as redes IEEE, Contreras e Jaboticabal para o novo padrão de instâncias FI
+- Escolher uma rede menor para gerar a curva #FI vs Tempo de Localização (R3?)
+- Para as demais redes, rodar considerando:
+   * quantidade fixa de FIs: 5, 10, 15, 20, 25
+   * quantidade relativa de FIs: 1%, 2%, 3%, 4%, 5%
+- Velocidade e taxa de falha fixas por instância
+- Executar BRKGA e Modelos
+    * Quanto aos modelos: Edge partition (com e sem lazy, com e sem simetrias, com e sem warm-start) e P-median hybrid (com e sem lazy, com e sem simetrias, com e sem warm-start).
+    * Tabelas (limitantes primal e dual, gap de otimalidade, tempo) e performance profiles.
+- Pseudo-código que gera a solução (posição dos FIs) com base na partição das arestas.
