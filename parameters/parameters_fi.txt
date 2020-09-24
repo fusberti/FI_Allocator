@@ -1,0 +1,2 @@
+"INSTANCE <filename.fi>" J3.fi
+"NUMBER OF FI <integer [0,INF]>" 2
