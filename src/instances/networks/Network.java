@@ -1,25 +1,26 @@
 package instances.networks;
 
-import instances.networks.edges.E;
-import instances.networks.vertices.V;
-import instances.networks.vertices.V.TYPES;
-
-import java.util.HashSet;
-import java.util.Iterator;
-import java.util.Map;
-import java.util.HashMap;
-import java.util.Set;
-
 import java.io.BufferedReader;
 import java.io.FileReader;
 import java.io.Reader;
 import java.io.StreamTokenizer;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Iterator;
+import java.util.Map;
+import java.util.Set;
 
 import org.apache.commons.collections15.Transformer;
 
 import edu.uci.ics.jung.graph.Graph;
 import edu.uci.ics.jung.graph.SparseMultigraph;
 import edu.uci.ics.jung.graph.util.EdgeType;
+import instances.Instance;
+import instances.networks.edges.E;
+import instances.networks.vertices.V;
+import instances.networks.vertices.V.TYPES;
+
 
 public class Network {
 
@@ -34,7 +35,159 @@ public class Network {
 		public String transform(E edge) {
 			return "["+edge.node1+","+edge.node2+"]";
 		}
-	};			
+	};	
+	
+public Network(String filename, Instance inst) {
+		
+		g = new SparseMultigraph<V, E>();
+		//g = new Forest<V, E>();
+		ties = new HashSet<E>();
+		this.mapEdgeIndex = new HashMap<Integer,E>();
+		this.mapNodeIndex = new HashMap<Integer,V>();
+		numProt = 0;
+		numNoProt = 0;
+		int numV, numE, numT;		
+		ArrayList<Integer> feeders = new ArrayList<>();
+		double crewSpeed, failureRate;
+		try {
+				
+			Reader r = new BufferedReader(new FileReader(filename));
+	    	StreamTokenizer stok = new StreamTokenizer(r);
+	    	stok.eolIsSignificant(true);
+	    	stok.nextToken();	//segue coletando ate chegar na linha do problema
+	    	String token = stok.sval;
+	    	while (token.compareTo("p") != 0) {
+	    		
+		    	stok.nextToken();
+		    	token = stok.sval;
+		    	if (token == null) token = "";
+	    		
+	    	}
+	    	
+	    	stok.nextToken();	//coleta "fi"
+	    	
+	    	stok.nextToken();	//numero de nos
+	    	numV = (int) stok.nval;
+	    	
+	    	stok.nextToken();	//numero de arestas
+	    	numE = (int) stok.nval;
+	    	
+	    	stok.nextToken();	//failure rate per year per km
+	    	failureRate = (double) stok.nval;
+	    	inst.getParameters().setFailureRate(failureRate);
+	    	
+	    	stok.nextToken();	//crew velocity km/h
+	    	crewSpeed = (double) stok.nval;
+	    	inst.getParameters().setCrewVelocity(crewSpeed);
+	    	
+	    	stok.nextToken();	//coleta f 
+	    	stok.nextToken();	
+	    	
+	    	while ( stok.nextToken() != StreamTokenizer.TT_EOL) {	    		
+		    	int val = (int) stok.nval;
+		    	//System.out.println(val);
+		    	feeders.add(val);
+	    	}
+	    	stok.eolIsSignificant(false);
+    		//No artificial -- raiz do alimentador
+	    	root = new V(0,-1,0,0,0,0);
+    		this.mapNodeIndex.put(-1,root);
+    		g.addVertex(root);   	
+	    	
+	    	for (int i=0;i<numV;i++) {
+	    		
+	    		stok.nextToken();	//coleta "v"
+	    		
+	    		stok.nextToken();	//coleta indice no
+	    		int label = (int) stok.nval;
+	    		
+	    		//System.out.println(label);
+	    			    		
+	    		stok.nextToken();	//coleta coordenada x
+	    		double coordX = stok.nval;	
+	    		
+	    		stok.nextToken();	//coleta coordenada x
+	    		double coordY = stok.nval;	
+
+	    		V node = new V(g.getVertexCount(),label, coordX, coordY);
+
+	    		this.mapNodeIndex.put(label,node);
+	    		
+//	    		System.out.println(node.id+" "+label+" "+thetaL+" "+thetaR+" "+demanda+" "+clientes);
+	    		
+	    		g.addVertex(node);	    		    		
+	    	}
+	    	    	
+	    	
+			// Aresta artificial -- da raiz do alimentador para todas as subestacoes
+			Iterator<Map.Entry<Integer, V>> iterNodes = this.mapNodeIndex.entrySet().iterator();
+			while (iterNodes.hasNext()) {
+				Map.Entry<Integer, V> entry = iterNodes.next();
+				V node = entry.getValue();
+				if (feeders.contains(node.label)) {
+					//System.out.println(node.label);
+					E edge = new E(g.getEdgeCount(), this.root, node, true, numProt++, -1, 0.0);
+					this.mapEdgeIndex.put(g.getEdgeCount(), edge);
+					g.addEdge(edge, this.root, node, EdgeType.DIRECTED);
+				}
+			}
+	    	    			
+			
+	    	for (int i=0;i<numE;i++) {
+	    		
+		    	stok.nextToken();	//coleta "e"
+		    	
+		    	stok.nextToken();	//no 1
+		    	int nodeLabel1 = (int) stok.nval;
+		    	
+		    	stok.nextToken();	//no 2
+		    	int nodeLabel2 = (int) stok.nval;
+		    		    	
+		    	   		    	
+		    	stok.nextToken();
+		    	double dist = stok.nval;
+		    	
+		    	//System.out.println(dist);
+		    	
+		    	V node1 = mapNodeIndex.get(nodeLabel1);
+		    	V node2 = mapNodeIndex.get(nodeLabel2);
+		    	
+		    	if (feeders.contains(node2.label)) {
+		    		V temp = node1;
+		    		node1 = node2;
+		    		node2 = temp;
+		    	}
+		    	
+		    	E edge = new E(g.getEdgeCount(),node1,node2, false,numProt,-1,dist);
+		    	
+		    	this.mapEdgeIndex.put(g.getEdgeCount(),edge);
+		    	
+//		    	System.out.println(edge.id+" "+nodeLabel1+" "+mapNodeIndex.get(nodeLabel1)+" "+nodeLabel2+" "+mapNodeIndex.get(nodeLabel2));
+		    	
+		    	g.addEdge(edge, node1, node2,EdgeType.DIRECTED);
+
+		    	//System.out.println("num edges = " + g.getEdgeCount());
+		    		    		    	    		
+	    	}	    	
+	    	
+//	    	ArrayList<E> listEdges = new ArrayList<>(g.getEdges());
+//	    	
+//	    	Collections.sort(listEdges, new EdgeComparator());
+//	    	for (E edge : listEdges)
+//				System.out.printf("Arco %d (%d,%d) length: %.1f\n", edge.id, edge.node1.id, edge.node2.id, edge.dist);
+//	    	
+	    	
+	    	    	    	
+	    } catch (Exception e) {
+	    	System.err.println("Erro leitura da instancia...");
+	    	e.printStackTrace();
+	    	System.exit(1);
+	    }	
+
+    	
+	}	
+
+	
 	
 	public Network(String filename) {
 		

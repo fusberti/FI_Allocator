@@ -22,7 +22,17 @@ public class V {
 	public int numSubNodes;
 	// fault indicator
 	public double distFromSE; // km
+	public double coordX;
+	public double coordY;
 
+	public V(int id, int label,double x, double y) {
+		this.id = id;
+		this.label = label;	
+		//if clients == -1, then this node represents a substation
+		coordX = x;
+		coordY = y;
+	}
+	
 	public V(int id, int label, double thetaL, double thetaR, double power, int clients) {
 		this.id = id;
 		this.label = label;

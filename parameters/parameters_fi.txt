@@ -1,2 +1,2 @@
-"INSTANCE <filename.fi>" J3.fi
+"INSTANCE <filename.fi>" JaboticabalATH03.fi
 "NUMBER OF FI <integer [0,INF]>" 2

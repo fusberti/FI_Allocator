@@ -1,6 +1,9 @@
 package instances.networks.edges;
 
+import java.util.Comparator;
+
 import instances.networks.vertices.V;
+
 
 public class E {
 
@@ -39,7 +42,7 @@ public class E {
 		this.idGoodSec = -1; 
 	}	
 	
-	public E(int id, V node1, V node2, boolean prot, int idProt, int idNoProt, int dist) {
+	public E(int id, V node1, V node2, boolean prot, int idProt, int idNoProt, double dist) {
 		this.id = id; // This is defined in the outer class.
 		this.node1 = node1;
 		this.node2 = node2;

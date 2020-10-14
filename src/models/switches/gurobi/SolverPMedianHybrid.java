@@ -1,9 +1,9 @@
 /*
- * Modelo de alocaÁ„o de sinalizadores para redes de distribuiÁ„o de energia
+ * Modelo de aloca√ß√£o de sinalizadores para redes de distribui√ß√£o de energia
  * 
  * Ideias para futuro: 
- * - avaliar o impacto economico da alocaÁ„o de sinalizadores, ou seja, a quantidade de sinalizadores
- * passa a ser uma vari·vel do modelo. 
+ * - avaliar o impacto economico da aloca√ß√£o de sinalizadores, ou seja, a quantidade de sinalizadores
+ * passa a ser uma vari√°vel do modelo. 
  * 
  */
 
@@ -19,13 +19,9 @@ import java.io.StreamTokenizer;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
-import java.util.Collections;
-import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.ListIterator;
-import java.util.Map;
-import java.util.Map.Entry;
 
 import edu.uci.ics.jung.graph.Graph;
 import gurobi.GRB;
@@ -64,6 +60,7 @@ public class SolverPMedianHybrid extends GRBCallback {
 
 	private int edgeGroup[];
 	private boolean visitedEdges[];
+	private boolean fiLocations[];
 
 	private static FileWriter logfile;
 	private static int count;
@@ -111,34 +108,22 @@ public class SolverPMedianHybrid extends GRBCallback {
 						model.optimize();
 
 						System.out.println("Obj: " + model.get(GRB.DoubleAttr.ObjVal));
+						System.out.println("Obj (hrs): " + model.get(GRB.DoubleAttr.ObjVal)*gurobi.inst.getParameters().getFailureRate()*1/gurobi.inst.getParameters().getCrewVelocity()); 
 
-//						GRBVar[] results = 	model.getVars();
-//						for (GRBVar var : results)
-//							System.out.printf("%s = %f\n", var.get(GRB.StringAttr.VarName), var.get(GRB.DoubleAttr.X));
-
-//						for (E edge : g.getEdges())
-//							System.out.printf("Arco %d (%d,%d) lengnt: %.1f\n", edge.id, edge.node1.id, edge.node2.id, edge.dist);
+//						GRBVar[] fvars = model.getVars();
+//						double[] x = model.get(GRB.DoubleAttr.X, fvars);
+//						String[] vnames = model.get(GRB.StringAttr.VarName, fvars);
 //
-//						for (V vertex1 : g.getVertices())
-//							for (V vertex2 : g.getVertices())
-//								System.out.printf("Arco(%d,%d) %s\n", vertex1.id, vertex2.id,
-//										g.findEdge(vertex1, vertex2));
+//						for (int j = 0; j < fvars.length; j++) {
+//							if (x[j] != 0.0) {
+//								System.out.println(vnames[j] + "= " + x[j]);
+//							}
+//						}
 
-						// System.exit(0);
-
-						GRBVar[] fvars = model.getVars();
-						double[] x = model.get(GRB.DoubleAttr.X, fvars);
-						String[] vnames = model.get(GRB.StringAttr.VarName, fvars);
-
-						for (int j = 0; j < fvars.length; j++) {
-							if (x[j] != 0.0) {
-								System.out.println(vnames[j] + "= " + x[j]);
-							}
+						if (!gurobi.checkSol(model)) {// s√≥ para ter certeza!
+							System.out.println("Solu√ß√£o infat√≠vel");
 						}
-
-						if (!gurobi.checkSol(model)) {// sÛ para ter certeza!
-							System.out.println("SoluÁ„o infatÌvel");
-						}
+						gurobi.setFILocations(model);
 //						System.out.println("maxSwitches " + gurobi.inst.parameters.getNumSwitches());
 
 						logfile.close();
@@ -378,7 +363,7 @@ public class SolverPMedianHybrid extends GRBCallback {
 	}
 
 	// RESTRICAO (2): x^k_a + x^k_c <= 1 + x^k_b k \in K, {a, c \in A}, b \in P(a,c)
-	// Conectividade de cada grupo. Se existir uma aresta "a" no grupo "k", ent„o toda
+	// Conectividade de cada grupo. Se existir uma aresta "a" no grupo "k", ent√£o toda
 	// aresta "b" no caminho de "a" ate o centro de "k" deve fazer parte do mesmo grupo.
 	private void addConstraint3(GRBModel model) {
 		try {
@@ -448,7 +433,7 @@ public class SolverPMedianHybrid extends GRBCallback {
 	}
 	
 	// w^k1_i + w^k2_i <= 1
-	// impede que dois pares de arcos de cores diferentes co-existam no mesmo vÈrtice
+	// impede que dois pares de arcos de cores diferentes co-existam no mesmo v√©rtice
 	private void addConstraint5(GRBModel model) {
 		try {
 			GRBLinExpr constraint = new GRBLinExpr();
@@ -576,7 +561,7 @@ public class SolverPMedianHybrid extends GRBCallback {
 			reader.close();
 			initSol = true;
 		} catch (Exception e) {
-			System.err.println("N„o h· arquivo com soluÁ„o inicial");
+			System.err.println("N√£o h√° arquivo com solu√ß√£o inicial");
 			e.printStackTrace();
 		}	
     	
@@ -673,7 +658,7 @@ public class SolverPMedianHybrid extends GRBCallback {
 	
 	
 //	private void setHeuristicSolution() throws GRBException{
-//		//setSolution(vars, x); aqui para passar uma soluÁ„o inicial? vars=x e c, x=valores de x e c
+//		//setSolution(vars, x); aqui para passar uma solu√ß√£o inicial? vars=x e c, x=valores de x e c
 //		Iterator<E> iterEdges;
 //		double[] values;
 //		values = new double[g.getEdgeCount()*inst.getParameters().getNumFI()*3];
@@ -737,13 +722,13 @@ public class SolverPMedianHybrid extends GRBCallback {
 			// RESTRICAO (5)
 			//this.addConstraint5(model);
 							
-			//eliminaÁ„o de simetria interna
+			//elimina√ß√£o de simetria interna
 			this.setInternalSymmetryBreaking(model);
 //			
-//			//eliminaÁ„o de simetria externa
+//			//elimina√ß√£o de simetria externa
 			this.setExternalSymmetryBreaking(model);
 //			
-//			//eliminaÁ„o de VIE simetria 
+//			//elimina√ß√£o de VIE simetria 
 			this.setVIESymmetryBreaking(model);
 
 			this.setInitialSolution(model, "inisols/" + this.getInst().getParameters().getInstanceName());
@@ -778,7 +763,7 @@ public class SolverPMedianHybrid extends GRBCallback {
 	
 	/** TODO
 	 * 
-	 * Tem que adaptar a integerSeparation para o modelo hÌbrido.
+	 * Tem que adaptar a integerSeparation para o modelo h√≠brido.
 	 * 
 	 */
 	private void integerSeparation() throws GRBException, IOException {
@@ -814,7 +799,7 @@ public class SolverPMedianHybrid extends GRBCallback {
 				// DFS no grupo k
 				checkConnectivity(root, k);
 
-				// alguma aresta do grupo k n„o foi visitada pela DFS?
+				// alguma aresta do grupo k n√£o foi visitada pela DFS?
 				iterEdges = g.getEdges().iterator();
 				E edgeC = null;
 				while (iterEdges.hasNext()) {
@@ -881,7 +866,7 @@ public class SolverPMedianHybrid extends GRBCallback {
 				// DFS no grupo k
 				checkConnectivity(root, k);
 
-				// alguma aresta do grupo k n„o foi visitada pela DFS?
+				// alguma aresta do grupo k n√£o foi visitada pela DFS?
 				iterEdges = g.getEdges().iterator();
 				E edgeA = null;
 				while (iterEdges.hasNext()) {
@@ -922,7 +907,7 @@ public class SolverPMedianHybrid extends GRBCallback {
 			
 			if (degree >= 4 ) {								
 				Iterator<E> iterIncEdges = g.getIncidentEdges(node).iterator();
-				while (iterIncEdges.hasNext() && !visited[node.id]) {//N„o pode contar novamente se foi visitado antes!
+				while (iterIncEdges.hasNext() && !visited[node.id]) {//N√£o pode contar novamente se foi visitado antes!
 					E incEdge = iterIncEdges.next(); 
 					countGroup[node.id][edgeGroup[incEdge.id]]++;					
 				}
@@ -1059,7 +1044,7 @@ public class SolverPMedianHybrid extends GRBCallback {
 					V root = edgeA.node1;
 					// DFS no grupo k
 					checkConnectivity(root, k);
-					// alguma aresta do grupo k n„o foi visitada pela DFS?
+					// alguma aresta do grupo k n√£o foi visitada pela DFS?
 					iterEdges = g.getEdges().iterator();
 					E edgeC = null;
 					while (iterEdges.hasNext()) {
@@ -1077,5 +1062,125 @@ public class SolverPMedianHybrid extends GRBCallback {
 		}
 		return false;
 	}
+	void setFILocations(GRBModel model) {
+		try {
+			edgeGroup = new int[g.getEdgeCount()];
+			fiLocations = new boolean[g.getEdgeCount() * 2];
 
+			double x_val[][] = new double[g.getEdgeCount()][inst.getParameters().getNumFI() + 1];
+			GRBVar[] fvars = model.getVars();
+			double[] x = model.get(GRB.DoubleAttr.X, fvars);
+			String[] vnames = model.get(GRB.StringAttr.VarName, fvars);
+			String[] xnames = Arrays.asList(vnames).stream().filter(name -> name.contains("x")).toArray(String[]::new);
+
+			for (int i = 0; i < xnames.length; i += inst.getParameters().getNumFI() + 1) {
+				int idx = Integer.valueOf(xnames[i].substring(2, xnames[i].indexOf(",")));
+				for (int k = 0; k <= inst.parameters.getNumFI(); k++) {
+					x_val[idx][k] = x[i + k];
+				}
+			}
+			Iterator<E> iterEdges;
+			iterEdges = g.getEdges().iterator();
+			while (iterEdges.hasNext()) {
+				E edge = iterEdges.next();
+				for (int k = 0; k <= inst.parameters.getNumFI(); k++) {
+					if (x_val[edge.id][k] > 0.5)
+						edgeGroup[edge.id] = k;
+				}
+			}
+
+			// print solution
+			for (int k = 0; k <= inst.getParameters().getNumFI(); k++) {
+				iterEdges = g.getEdges().iterator();
+				System.out.print(k + ": [");
+				while (iterEdges.hasNext()) {
+					E edge = iterEdges.next();
+					if (edgeGroup[edge.id] == k)
+						System.out.print(" " + edge.id);// + " " + edge);
+				}
+				System.out.println("]");
+			}
+
+			g.getVertices().stream().filter(v -> g.getIncidentEdges(v).size() >= 2).forEach(v -> {
+				// System.out.println("v: " + v);
+				if (v.label != -1) {
+					E edge = g.getInEdges(v).iterator().next();
+					// System.out.println("Edge: " + edge);
+					Iterator<E> itIncEdges = g.getIncidentEdges(v).iterator();
+					double arcsInGroup[] = new double[inst.getParameters().getNumFI() + 1];
+					boolean changedColor = false;
+					while (itIncEdges.hasNext()) {
+						E incEdge = itIncEdges.next();
+						if (edge != incEdge)
+							arcsInGroup[edgeGroup[incEdge.id]]++;//
+						if (edge != incEdge && edgeGroup[edge.id] != edgeGroup[incEdge.id])
+							changedColor = true;
+					}
+					if (changedColor) {
+						// System.out.println("Mudou de cor!");
+						Arrays.sort(arcsInGroup);
+						// System.out.println(Arrays.toString(arcsInGroup));
+						// System.out.println(Arrays.binarySearch(arcsInGroup,1.5));
+						if (-1 * Arrays.binarySearch(arcsInGroup, 1.5) <= arcsInGroup.length) { // rule 1
+							// System.out.println("Regra 1!");
+							fiLocations[2 * edge.id + 1] = true; // fi located at the end of the predecessor arc
+						}
+						itIncEdges = g.getIncidentEdges(v).iterator();
+						while (itIncEdges.hasNext()) {
+							boolean siblings = false;
+							E incEdge = itIncEdges.next();
+							if (incEdge == edge)
+								continue;
+							Iterator<E> iterEdges2 = g.getIncidentEdges(v).iterator();
+							while (iterEdges2.hasNext()) {
+								E incEdge2 = iterEdges2.next();
+								if (incEdge2 == edge || incEdge == incEdge2)
+									continue;
+								if (edgeGroup[incEdge.id] == edgeGroup[incEdge2.id]) {
+									siblings = true;
+									break;
+								}
+							}
+							if (edgeGroup[incEdge.id] != edgeGroup[edge.id] && !siblings) { // rule 2
+								fiLocations[2 * incEdge.id] = true;
+								// System.out.println("Regra 2!");
+							}
+						}
+					}
+				} 
+				else {
+					Iterator<E> itIncEdges = g.getIncidentEdges(v).iterator();
+					while (itIncEdges.hasNext()) {
+						boolean siblings = false;
+						E incEdge = itIncEdges.next();						
+						Iterator<E> iterEdges2 = g.getIncidentEdges(v).iterator();
+						while (iterEdges2.hasNext()) {
+							E incEdge2 = iterEdges2.next();
+							if (incEdge == incEdge2)
+								continue;
+							if (edgeGroup[incEdge.id] == edgeGroup[incEdge2.id]) {
+								siblings = true;
+								break;
+							}
+						}
+						if (!siblings) { // rule 2
+							fiLocations[2 * incEdge.id] = true;
+							// System.out.println("Regra 2!");
+						}
+					}
+				}
+			});
+
+			// System.out.println("FI: " + Arrays.toString(fiLocations));
+			System.out.print("FI: ");
+			for (int i = 0; i < fiLocations.length; i++)
+				if (fiLocations[i])
+					System.out.printf("%d(%s) ", i / 2, i % 2 == 0 ? "i" : "f");
+			System.out.println();
+
+		} catch (GRBException e) {
+			System.out.println("Error code: " + e.getErrorCode() + ". " + e.getMessage());
+			e.printStackTrace();
+		}
+	}
 }

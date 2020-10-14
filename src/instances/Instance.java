@@ -37,9 +37,9 @@ public class Instance {
 		parameters = new InstanceParameters();
 		
 		//setting instance network
-		net = new Network("instancias/"+parameters.getInstanceName());
+		net = new Network("instancias/"+parameters.getInstanceName(), this);
 		
-		reliability = new Reliability(this);
+		//reliability = new Reliability(this);
 		
 	
 //      JFrame frame = new JFrame();
@@ -68,24 +68,24 @@ public class Instance {
 //	     frame.pack();
 //	     frame.setVisible(true);     
 			
-		if (setReductions) {
-			reduce = new Reductions(net);
-			System.out.println("|E| = "+net.getG().getEdgeCount());
-			reduce.reduceG1();
-
-//		      JFrame frame = new JFrame();
-//		      Container content = frame.getContentPane();
-//		      frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
-//		      content.add(new MyTreeCollapseDemo(this));
-//		      frame.pack();
-//		      frame.setVisible(true);
-			
-			System.out.println("|E| = "+net.getG().getEdgeCount());
-			reduce.reduceG2();
-			System.out.println("|E| = "+net.getG().getEdgeCount());
-			reduce.reduceG4();
-			System.out.println("|E| = "+net.getG().getEdgeCount());
-		}
+//		if (setReductions) {
+//			reduce = new Reductions(net);
+//			System.out.println("|E| = "+net.getG().getEdgeCount());
+//			reduce.reduceG1();
+//
+////		      JFrame frame = new JFrame();
+////		      Container content = frame.getContentPane();
+////		      frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+////		      content.add(new MyTreeCollapseDemo(this));
+////		      frame.pack();
+////		      frame.setVisible(true);
+//			
+//			System.out.println("|E| = "+net.getG().getEdgeCount());
+//			reduce.reduceG2();
+//			System.out.println("|E| = "+net.getG().getEdgeCount());
+//			reduce.reduceG4();
+//			System.out.println("|E| = "+net.getG().getEdgeCount());
+//		}
 		//System.out.println("teste");
 		
 //	      JFrame frame = new JFrame();
