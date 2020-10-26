@@ -1062,7 +1062,7 @@ public class SolverPMedianHybrid extends GRBCallback {
 		}
 		return false;
 	}
-	void setFILocations(GRBModel model) {
+	void setFILocations(GRBModel model) throws IOException {
 		try {
 			edgeGroup = new int[g.getEdgeCount()];
 			fiLocations = new boolean[g.getEdgeCount() * 2];
@@ -1170,7 +1170,7 @@ public class SolverPMedianHybrid extends GRBCallback {
 					}
 				}
 			});
-
+			writePlotFiles(edgeGroup);
 			// System.out.println("FI: " + Arrays.toString(fiLocations));
 			System.out.print("FI: ");
 			for (int i = 0; i < fiLocations.length; i++)
@@ -1182,5 +1182,33 @@ public class SolverPMedianHybrid extends GRBCallback {
 			System.out.println("Error code: " + e.getErrorCode() + ". " + e.getMessage());
 			e.printStackTrace();
 		}
+	}
+	
+	public void writePlotFiles(int[] edges) throws IOException{
+		String instance = getInst().getParameters().getInstanceName();
+		try (FileWriter writer = new FileWriter(instance.substring(instance.lastIndexOf("/")+1, instance.lastIndexOf(".")) + "_edges.dat")){
+			g.getEdges().stream().filter(e -> e.id != 0).forEach(e -> {
+				double x1 = g.getSource(e).coordX;
+				double y1 = g.getSource(e).coordY;
+				double x2 = g.getDest(e).coordX;
+				double y2 = g.getDest(e).coordY;
+				try {					
+					writer.write(x1 + "\t" + y1 + "\t" + edges[e.id] + "\n");
+					writer.write(x2 + "\t" + y2 + "\t" + edges[e.id] + "\n\n");
+					
+				} catch (IOException e1) {
+					e1.printStackTrace();
+				}
+			});
+		}
+//		try (FileWriter writer = new FileWriter(instance.substring(instance.lastIndexOf("/")+1, instance.lastIndexOf(".")) + "_vertices.dat")){
+//			g.getVertices().stream().filter(v -> v.label != -1).forEach(v -> {
+//				try {					
+//					writer.write(v.coordX + "\t" + v.coordY + "\n");					
+//				} catch (IOException e1) {
+//					e1.printStackTrace();
+//				}
+//			});
+//		}		
 	}
 }
