@@ -120,18 +120,25 @@ public Network(String filename, Instance inst) {
 	    	    	
 	    	
 			// Aresta artificial -- da raiz do alimentador para todas as subestacoes
-			Iterator<Map.Entry<Integer, V>> iterNodes = this.mapNodeIndex.entrySet().iterator();
-			while (iterNodes.hasNext()) {
-				Map.Entry<Integer, V> entry = iterNodes.next();
-				V node = entry.getValue();
-				if (feeders.contains(node.label)) {
-					//System.out.println(node.label);
-					E edge = new E(g.getEdgeCount(), this.root, node, true, numProt++, -1, 0.0);
-					this.mapEdgeIndex.put(g.getEdgeCount(), edge);
-					g.addEdge(edge, this.root, node, EdgeType.DIRECTED);
-				}
+//			Iterator<Map.Entry<Integer, V>> iterNodes = this.mapNodeIndex.entrySet().iterator();
+//			while (iterNodes.hasNext()) {
+//				Map.Entry<Integer, V> entry = iterNodes.next();
+//				V node = entry.getValue();
+//				if (feeders.contains(node.label)) {
+//					//System.out.println(node.label);
+//					E edge = new E(g.getEdgeCount(), this.root, node, true, numProt++, -1, 0.0);
+//					this.mapEdgeIndex.put(g.getEdgeCount(), edge);
+//					g.addEdge(edge, this.root, node, EdgeType.DIRECTED);
+//				}
+//			}
+			
+			// Arestas artificiais -- da raiz para todos os alimentadores
+			for(Integer label : feeders) {
+				V node = this.mapNodeIndex.get(label);
+				E edge = new E(g.getEdgeCount(), this.root, node, true, numProt++, -1, 0.0);
+				this.mapEdgeIndex.put(g.getEdgeCount(), edge);
+				g.addEdge(edge, this.root, node, EdgeType.DIRECTED);
 			}
-	    	    			
 			
 	    	for (int i=0;i<numE;i++) {
 	    		

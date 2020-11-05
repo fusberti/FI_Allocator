@@ -103,8 +103,8 @@ public class SolverPMedianHybrid extends GRBCallback {
 						gurobi.populateNewModel(model);
 
 						// Write model to file
-						model.write("FI_Allocation.lp");
-						
+						model.write("FI_Allocation.lp");						
+								
 						model.optimize();
 
 						System.out.println("Obj: " + model.get(GRB.DoubleAttr.ObjVal));
@@ -1100,8 +1100,8 @@ public class SolverPMedianHybrid extends GRBCallback {
 				}
 				System.out.println("]");
 			}
-
-			g.getVertices().stream().filter(v -> g.getIncidentEdges(v).size() >= 2).forEach(v -> {
+			
+			g.getVertices().stream().filter(v -> g.getIncidentEdges(v).size() >= 2).forEach(v -> {				
 				// System.out.println("v: " + v);
 				if (v.label != -1) {
 					E edge = g.getInEdges(v).iterator().next();
@@ -1122,7 +1122,7 @@ public class SolverPMedianHybrid extends GRBCallback {
 						// System.out.println(Arrays.toString(arcsInGroup));
 						// System.out.println(Arrays.binarySearch(arcsInGroup,1.5));
 						if (-1 * Arrays.binarySearch(arcsInGroup, 1.5) <= arcsInGroup.length) { // rule 1
-							// System.out.println("Regra 1!");
+							// System.out.println("Regra 1!");							
 							fiLocations[2 * edge.id + 1] = true; // fi located at the end of the predecessor arc
 						}
 						itIncEdges = g.getIncidentEdges(v).iterator();
@@ -1142,33 +1142,33 @@ public class SolverPMedianHybrid extends GRBCallback {
 								}
 							}
 							if (edgeGroup[incEdge.id] != edgeGroup[edge.id] && !siblings) { // rule 2
-								fiLocations[2 * incEdge.id] = true;
+								fiLocations[2 * incEdge.id] = true;								
 								// System.out.println("Regra 2!");
 							}
 						}
 					}
 				} 
-				else {
-					Iterator<E> itIncEdges = g.getIncidentEdges(v).iterator();
-					while (itIncEdges.hasNext()) {
-						boolean siblings = false;
-						E incEdge = itIncEdges.next();						
-						Iterator<E> iterEdges2 = g.getIncidentEdges(v).iterator();
-						while (iterEdges2.hasNext()) {
-							E incEdge2 = iterEdges2.next();
-							if (incEdge == incEdge2)
-								continue;
-							if (edgeGroup[incEdge.id] == edgeGroup[incEdge2.id]) {
-								siblings = true;
-								break;
-							}
-						}
-						if (!siblings) { // rule 2
-							fiLocations[2 * incEdge.id] = true;
-							// System.out.println("Regra 2!");
-						}
-					}
-				}
+//				else if {
+//					Iterator<E> itIncEdges = g.getIncidentEdges(v).iterator();
+//					while (itIncEdges.hasNext()) {
+//						boolean siblings = false;
+//						E incEdge = itIncEdges.next();						
+//						Iterator<E> iterEdges2 = g.getIncidentEdges(v).iterator();
+//						while (iterEdges2.hasNext()) {
+//							E incEdge2 = iterEdges2.next();
+//							if (incEdge == incEdge2)
+//								continue;
+//							if (edgeGroup[incEdge.id] == edgeGroup[incEdge2.id]) {
+//								siblings = true;
+//								break;
+//							}
+//						}
+//						if (!siblings) { // rule 2
+//							fiLocations[2 * incEdge.id] = true;
+//							// System.out.println("Regra 2!");
+//						}
+//					}
+//				}
 			});
 			writePlotFiles(edgeGroup);
 			// System.out.println("FI: " + Arrays.toString(fiLocations));

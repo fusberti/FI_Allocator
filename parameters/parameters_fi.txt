@@ -1,2 +1,2 @@
-"INSTANCE <filename.fi>" power_systems_radial/bus_32_1.fi
-"NUMBER OF FI <integer [0,INF]>" 4
+"INSTANCE <filename.fi>" 85nodes.fi
+"NUMBER OF FI <integer [0,INF]>" 2
