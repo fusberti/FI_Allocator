@@ -64,8 +64,8 @@ public class SolverPMedian extends GRBCallback {
 	private static FileWriter logfile;
 	private static int count;
 
-	public SolverPMedian(String filename) {
-		this.inst = new Instance();
+	public SolverPMedian(String args[]) {
+		this.inst = new Instance(args);
 		this.g = this.inst.net.getG();
 	}
 
@@ -89,22 +89,22 @@ public class SolverPMedian extends GRBCallback {
 
 						instanciaNome = stok.sval;
 
-						gurobi = new SolverPMedian("instancias/" + instanciaNome);
+						gurobi = new SolverPMedian(args);
 
 						System.out.println(gurobi.getInst().getParameters().getInstanceName());
 
-						env = new GRBEnv("mip1.log");
+						env = new GRBEnv("logs/"+gurobi.getInst().getParameters().getInstanceName()+".log");
 						model = new GRBModel(env);
 
 						// Open log file for callbacks
-						logfile = new FileWriter("callback.log");
+						//logfile = new FileWriter("callback.log");
 
 						// Configura os parametros do solver Gurobi
 						new GurobiParameters(model);
 						gurobi.populateNewModel(model);
 
 						// Write model to file
-						model.write("FI_Allocation.lp");
+						//model.write("FI_Allocation.lp");
 
 						model.optimize();
 
@@ -150,8 +150,8 @@ public class SolverPMedian extends GRBCallback {
 
 					// outFileInst.close();
 
-					System.out.println(
-							"Otimizacao encerrada, resultados impressos em " + "resultados/" + instanciaNome + ".out");
+					//System.out.println(
+					//		"Otimizacao encerrada, resultados impressos em " + "resultados/" + instanciaNome + ".out");
 
 				} catch (GRBException e) {
 					System.out.println("Error code: " + e.getErrorCode() + ". " + e.getMessage());
@@ -634,7 +634,7 @@ public class SolverPMedian extends GRBCallback {
 						constraint.addTerm(1, x[edgeC.id][k]);
 						constraint.addTerm(-1, x[edgeB.id][k]);
 						addLazy(constraint, GRB.LESS_EQUAL, 1);
-						logfile.write(count++ + ": c1_lazy_" + edgeA.id + "," + edgeB.id + "," + edgeC.id + "," + k + "\n");
+						//logfile.write(count++ + ": c1_lazy_" + edgeA.id + "," + edgeB.id + "," + edgeC.id + "," + k + "\n");
 						//break;
 					}
 				}

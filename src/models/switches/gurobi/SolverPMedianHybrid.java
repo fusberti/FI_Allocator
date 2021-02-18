@@ -62,11 +62,12 @@ public class SolverPMedianHybrid extends GRBCallback {
 	private boolean visitedEdges[];
 	private boolean fiLocations[];
 
-	private static FileWriter logfile;
+	//private static FileWriter logfile;
 	private static int count;
 
-	public SolverPMedianHybrid(String filename) {
-		this.inst = new Instance();
+	//public SolverPMedianHybrid(String filename) {
+	public SolverPMedianHybrid(String[] args) {
+		this.inst = new Instance(args);
 		this.g = this.inst.net.getG();
 	}
 
@@ -87,23 +88,24 @@ public class SolverPMedianHybrid extends GRBCallback {
 
 						instanciaNome = stok.sval;
 
-						gurobi = new SolverPMedianHybrid("instancias/" + instanciaNome);
+						//gurobi = new SolverPMedianHybrid("instancias/" + instanciaNome);
+						gurobi = new SolverPMedianHybrid(args);
 
 						System.out.println(gurobi.getInst().getParameters().getInstanceName());
 
-						env = new GRBEnv("mip1.log");
+						env = new GRBEnv("logs/"+gurobi.getInst().getParameters().getInstanceName()+"."+gurobi.getInst().getParameters().getNumFI()+".log");
 						model = new GRBModel(env);
-						model.set(IntParam.StartNodeLimit, 2000000000);
+						//model.set(IntParam.StartNodeLimit, 200000000);
 
 						// Open log file for callbacks
-						logfile = new FileWriter("callback.log");
+						//logfile = new FileWriter("callback.log");
 						
 						// Configura os parametros do solver Gurobi
 						new GurobiParameters(model);
 						gurobi.populateNewModel(model);
 
 						// Write model to file
-						model.write("FI_Allocation.lp");						
+						//model.write("FI_Allocation.lp");						
 								
 						model.optimize();
 
@@ -126,7 +128,7 @@ public class SolverPMedianHybrid extends GRBCallback {
 						gurobi.setFILocations(model);
 //						System.out.println("maxSwitches " + gurobi.inst.parameters.getNumSwitches());
 
-						logfile.close();
+						//logfile.close();
 
 						model.dispose();
 						env.dispose();
@@ -822,7 +824,7 @@ public class SolverPMedianHybrid extends GRBCallback {
 						constraint.addTerm(1, x[edgeC.id][k]);
 						constraint.addTerm(-1, x[edgeB.id][k]);
 						addLazy(constraint, GRB.LESS_EQUAL, 1);
-						logfile.write(count++ + ": c1_lazy_" + edgeA.id + "," + edgeB.id + "," + edgeC.id + "," + k + "\n");
+						//logfile.write(count++ + ": c1_lazy_" + edgeA.id + "," + edgeB.id + "," + edgeC.id + "," + k + "\n");
 						//break;
 					}
 				}
@@ -889,7 +891,7 @@ public class SolverPMedianHybrid extends GRBCallback {
 						constraint.addTerm(1, x[edgeA.id][k]);
 						constraint.addTerm(-1, x[edgeB.id][k]);
 						addLazy(constraint, GRB.LESS_EQUAL, 1);
-						logfile.write(count++ + ": c3_lazy_" + edgeE.id + "," + edgeB.id + "," + edgeA.id + "," + k + "\n");
+						//logfile.write(count++ + ": c3_lazy_" + edgeE.id + "," + edgeB.id + "," + edgeA.id + "," + k + "\n");
 						//break;
 					}
 				}
@@ -936,7 +938,7 @@ public class SolverPMedianHybrid extends GRBCallback {
 				}
 				
 				addLazy(constraint, GRB.GREATER_EQUAL, -1);
-				logfile.write(count++ + ": c4_lazy_" + edge.id + "," + k1 + "\n");
+				//logfile.write(count++ + ": c4_lazy_" + edge.id + "," + k1 + "\n");
 				
 				constraint.clear();
 				constraint.addTerm(degree-1, w[edge.id][k2]);
@@ -946,13 +948,13 @@ public class SolverPMedianHybrid extends GRBCallback {
 					constraint.addTerm(-1, x[incEdge.id][k2]);
 				}
 				addLazy(constraint, GRB.GREATER_EQUAL, -1);
-				logfile.write(count++ + ": c4_lazy_" + edge.id + "," + k2 + "\n");
+				//logfile.write(count++ + ": c4_lazy_" + edge.id + "," + k2 + "\n");
 				
 				constraint.clear();
 				constraint.addTerm(1, w[edge.id][k1]);
 				constraint.addTerm(1, w[edge.id][k2]);
 				addLazy(constraint, GRB.LESS_EQUAL, 1);
-				logfile.write(count++ + ": c5_lazy_" + edge.id + "," + k1 + "," + k2 + "\n");
+				//logfile.write(count++ + ": c5_lazy_" + edge.id + "," + k1 + "," + k2 + "\n");
 			}
 
 		}
@@ -1186,7 +1188,7 @@ public class SolverPMedianHybrid extends GRBCallback {
 	
 	public void writePlotFiles(int[] edges) throws IOException{
 		String instance = getInst().getParameters().getInstanceName();
-		try (FileWriter writer = new FileWriter(instance.substring(instance.lastIndexOf("/")+1, instance.lastIndexOf(".")) + "_edges.dat")){
+		try (FileWriter writer = new FileWriter(instance.substring(instance.lastIndexOf("/")+1, instance.lastIndexOf(".")) + "_edges."+this.getInst().getParameters().getNumFI()+".dat")){
 			g.getEdges().stream().filter(e -> e.id != 0).forEach(e -> {
 				double x1 = g.getSource(e).coordX;
 				double y1 = g.getSource(e).coordY;

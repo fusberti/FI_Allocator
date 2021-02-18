@@ -69,11 +69,11 @@ public class SolverEdgePartition extends GRBCallback {
 	private boolean visitedEdges[];
 	private boolean fiLocations[];
 
-	private static FileWriter logfile;
+	//private static FileWriter logfile;
 	private static int count;
 
-	public SolverEdgePartition(String filename) {
-		this.inst = new Instance();
+	public SolverEdgePartition(String[] args) {
+		this.inst = new Instance(args);
 		this.g = this.inst.net.getG();
 	}
 
@@ -97,22 +97,22 @@ public class SolverEdgePartition extends GRBCallback {
 
 						instanciaNome = stok.sval;
 
-						gurobi = new SolverEdgePartition("instancias/" + instanciaNome);
+						gurobi = new SolverEdgePartition(args);
 
 						System.out.println(gurobi.getInst().getParameters().getInstanceName());
 
-						env = new GRBEnv("mip1.log");
+						env = new GRBEnv("logs/"+gurobi.getInst().getParameters().getInstanceName()+"."+gurobi.getInst().getParameters().getNumFI()+".log");
 						model = new GRBModel(env);
 
 						// Open log file for callbacks
-						logfile = new FileWriter("callback.log");
+						//logfile = new FileWriter("callback.log");
 
 						// Configura os parametros do solver Gurobi
 						new GurobiParameters(model);
 						gurobi.populateNewModel(model);
 
 						// Write model to file
-						model.write("FI_Allocation.lp");
+						//model.write("FI_Allocation.lp");
 
 						System.out.println("Otimizando....");
 						model.optimize();
@@ -136,7 +136,7 @@ public class SolverEdgePartition extends GRBCallback {
 						gurobi.setFILocations(model);
 //						System.out.println("maxSwitches " + gurobi.inst.parameters.getNumSwitches());
 
-						logfile.close();
+						//logfile.close();
 
 						model.dispose();
 						env.dispose();
@@ -769,10 +769,10 @@ public class SolverEdgePartition extends GRBCallback {
 			// this.setContourVars(model);
 
 			// eliminação de simetria
-			// this.setSymmetryBreaking(model);
+			//this.setSymmetryBreaking(model);
 
 			// eliminação de simetria 2
-			// this.setSymmetryBreaking2(model);
+			//this.setSymmetryBreaking2(model);
 
 			this.setInitialSolution(model, "inisols/" + this.getInst().getParameters().getInstanceName().substring(this.getInst().getParameters().getInstanceName().lastIndexOf("/")+1));
 
@@ -859,8 +859,8 @@ public class SolverEdgePartition extends GRBCallback {
 						constraint.addTerm(1, x[edgeC.id][k]);
 						constraint.addTerm(-1, x[edgeB.id][k]);
 						addLazy(constraint, GRB.LESS_EQUAL, 1);
-						logfile.write(
-								count++ + ": c1_lazy_" + edgeA.id + "," + edgeB.id + "," + edgeC.id + "," + k + "\n");
+						//logfile.write(
+							//	count++ + ": c1_lazy_" + edgeA.id + "," + edgeB.id + "," + edgeC.id + "," + k + "\n");
 						// break;
 					}
 				}
@@ -924,8 +924,8 @@ public class SolverEdgePartition extends GRBCallback {
 						constraint.addTerm(1, x[edgeC.id][k]);
 						constraint.addTerm(-1, x[edgeB.id][k]);
 						addLazy(constraint, GRB.LESS_EQUAL, 1);
-						logfile.write(
-								count++ + ": c1_lazy_" + edgeA.id + "," + edgeB.id + "," + edgeC.id + "," + k + "\n");
+						//logfile.write(
+							//	count++ + ": c1_lazy_" + edgeA.id + "," + edgeB.id + "," + edgeC.id + "," + k + "\n");
 						// break;
 					}
 				}
@@ -971,7 +971,7 @@ public class SolverEdgePartition extends GRBCallback {
 					constraint.addTerm(-1, x[incEdge.id][k1]);
 				}
 				addLazy(constraint, GRB.GREATER_EQUAL, -1);
-				logfile.write(count++ + "c5_lazy_" + edge.id + "," + k1 + "\n");
+				//logfile.write(count++ + "c5_lazy_" + edge.id + "," + k1 + "\n");
 
 				constraint.clear();
 				constraint.addTerm(degree - 1, w[edge.id][k2]);
@@ -981,13 +981,13 @@ public class SolverEdgePartition extends GRBCallback {
 					constraint.addTerm(-1, x[incEdge.id][k2]);
 				}
 				addLazy(constraint, GRB.GREATER_EQUAL, -1);
-				logfile.write(count++ + "c5_lazy_" + edge.id + "," + k2 + "\n");
+				//logfile.write(count++ + "c5_lazy_" + edge.id + "," + k2 + "\n");
 
 				constraint.clear();
 				constraint.addTerm(1, w[edge.id][k1]);
 				constraint.addTerm(1, w[edge.id][k2]);
 				addLazy(constraint, GRB.LESS_EQUAL, 1);
-				logfile.write(count++ + "c6_lazy_" + edge.id + "," + k1 + "," + k2 + "\n");
+				//logfile.write(count++ + "c6_lazy_" + edge.id + "," + k1 + "," + k2 + "\n");
 			}
 
 		}
@@ -1055,8 +1055,8 @@ public class SolverEdgePartition extends GRBCallback {
 							constraint.addTerm(-1, x[edgeB.id][k]);
 							addLazy(constraint, GRB.LESS_EQUAL, 1); // ,
 							// "c1_lazy_"+edgeA.id+","+edgeB.id+","+edgeC.id+","+k);
-							logfile.write(count++ + ": c1f_lazy_" + edgeA.id + "," + edgeB.id + "," + edgeC.id + "," + k
-									+ "\n");
+							//logfile.write(count++ + ": c1f_lazy_" + edgeA.id + "," + edgeB.id + "," + edgeC.id + "," + k
+								//	+ "\n");
 						}
 					}
 				}
@@ -1128,8 +1128,8 @@ public class SolverEdgePartition extends GRBCallback {
 						constraint.addTerm(-1, x[edgeB.id][k]);
 						addLazy(constraint, GRB.LESS_EQUAL, 1); // ,
 																// "c1_lazy_"+edgeA.id+","+edgeB.id+","+edgeC.id+","+k);
-						logfile.write(
-								count++ + ": c1f_lazy_" + edgeA.id + "," + edgeB.id + "," + edgeC.id + "," + k + "\n");
+						//logfile.write(
+							//	count++ + ": c1f_lazy_" + edgeA.id + "," + edgeB.id + "," + edgeC.id + "," + k + "\n");
 						break;
 					}
 				}

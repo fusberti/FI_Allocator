@@ -31,13 +31,18 @@ public class Instance {
 	public Reductions reduce;
 	public boolean setReductions = false;
 	
-	public Instance() {
+	public Instance(String args[]) {
 		
 		//setting instance parameters
 		parameters = new InstanceParameters();
 		
+		// (22/12/2020) Getting instance name and num FI from prompt
+		parameters.setInstanceName(args[0]);
+		parameters.setNumFI(Integer.parseInt(args[1]));
+		
 		//setting instance network
 		net = new Network("instancias/"+parameters.getInstanceName(), this);
+		//net = new Network(parameters.getInstanceName(), this);
 		
 		//reliability = new Reliability(this);
 		

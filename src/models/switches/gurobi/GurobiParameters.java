@@ -27,14 +27,14 @@ public class GurobiParameters {
 		super();
 		this.setModel(model);
 		this.setThreads(1);
-		this.setTime(360000.0f);
-		this.setMemsize(3.0f);
-		this.setPrecrush(PRECRUSHES.on);
-		this.setMipfocus(MIPFOCUSES.optimality);
-		this.setCut(CUTS.off);
+		this.setTime(3600.0f);
+		this.setMemsize(4.0f);
+		this.setPrecrush(PRECRUSHES.off);
+		this.setMipfocus(MIPFOCUSES.gurobi_default);
+		this.setCut(CUTS.auto);
 		this.setCutoff(Double.MAX_VALUE);
 		this.setCutpasses(-1);
-		this.setIntfeastol(1e-9);
+		this.setIntfeastol(1e-6);
 		
 		
 	}
