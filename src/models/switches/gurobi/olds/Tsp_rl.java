@@ -1,4 +1,4 @@
-package models.switches.gurobi;
+package models.switches.gurobi.olds;
 /* Copyright 2020, Gurobi Optimization, LLC */
 
 // Solve a traveling salesman problem on a randomly generated set of
@@ -10,16 +10,11 @@ package models.switches.gurobi;
 
 import gurobi.*;
 
-public class Tsp2 extends GRBCallback {
-	
-  public static int n = 200;
-	
-  private GRBVar[][] vars1;
-  private GRBVar[][] vars2;
+public class Tsp_rl extends GRBCallback {
+  private GRBVar[][] vars;
 
-  public Tsp2(GRBVar[][] xvars1, GRBVar[][] xvars2) {
-    vars1 = xvars1;
-    vars2 = xvars2;
+  public Tsp_rl(GRBVar[][] xvars) {
+    vars = xvars;
   }
 
   // Subtour elimination callback.  Whenever a feasible solution is found,
@@ -30,27 +25,16 @@ public class Tsp2 extends GRBCallback {
     try {
       if (where == GRB.CB_MIPSOL) {
         // Found an integer feasible solution - does it visit every node?
-        //int n = vars.length;
-        int[] tour1 = findsubtour(getSolution(vars1));
+        int n = vars.length;
+        int[] tour = findsubtour(getSolution(vars));
 
-        if (tour1.length < n) {
+        if (tour.length < n) {
           // Add subtour elimination constraint
           GRBLinExpr expr = new GRBLinExpr();
-          for (int i = 0; i < tour1.length; i++)
-            for (int j = i+1; j < tour1.length; j++)
-              expr.addTerm(1.0, vars1[tour1[i]][tour1[j]]);
-          addLazy(expr, GRB.LESS_EQUAL, tour1.length-1);
-        }
-        
-        int[] tour2 = findsubtour(getSolution(vars2));
-
-        if (tour2.length < n) {
-          // Add subtour elimination constraint
-          GRBLinExpr expr = new GRBLinExpr();
-          for (int i = 0; i < tour2.length; i++)
-            for (int j = i+1; j < tour2.length; j++)
-              expr.addTerm(1.0, vars2[tour2[i]][tour2[j]]);
-          addLazy(expr, GRB.LESS_EQUAL, tour2.length-1);
+          for (int i = 0; i < tour.length; i++)
+            for (int j = i+1; j < tour.length; j++)
+              expr.addTerm(1.0, vars[tour[i]][tour[j]]);
+          addLazy(expr, GRB.LESS_EQUAL, tour.length-1);
         }
       }
     } catch (GRBException e) {
@@ -65,7 +49,7 @@ public class Tsp2 extends GRBCallback {
 
   protected static int[] findsubtour(double[][] sol)
   {
-    //int n = sol.length;
+    int n = sol.length;
     boolean[] seen = new boolean[n];
     int[] tour = new int[n];
     int bestind, bestlen;
@@ -129,6 +113,8 @@ public class Tsp2 extends GRBCallback {
 //      System.exit(1);
 //    }
 
+    int n = 300;
+
     try {
       GRBEnv   env   = new GRBEnv();
       GRBModel model = new GRBModel(env);
@@ -147,19 +133,14 @@ public class Tsp2 extends GRBCallback {
 
       // Create variables
 
-      GRBVar[][] vars1 = new GRBVar[n][n];
-      GRBVar[][] vars2 = new GRBVar[n][n];
+      GRBVar[][] vars = new GRBVar[n][n];
 
       for (int i = 0; i < n; i++)
         for (int j = 0; j <= i; j++) {
-          vars1[i][j] = model.addVar(0.0, 1.0, distance(x, y, i, j),
+          vars[i][j] = model.addVar(0.0, 1.0, distance(x, y, i, j),
                                     GRB.BINARY,
                                   "x"+String.valueOf(i)+"_"+String.valueOf(j));
-          vars1[j][i] = vars1[i][j];
-          vars2[i][j] = model.addVar(0.0, 1.0, distance(x, y, i, j),
-                  GRB.BINARY,
-                "x"+String.valueOf(i)+"_"+String.valueOf(j));
-          vars2[j][i] = vars2[i][j];
+          vars[j][i] = vars[i][j];
         }
 
       // Degree-2 constraints
@@ -167,53 +148,25 @@ public class Tsp2 extends GRBCallback {
       for (int i = 0; i < n; i++) {
         GRBLinExpr expr = new GRBLinExpr();
         for (int j = 0; j < n; j++)
-          expr.addTerm(1.0, vars1[i][j]);
+          expr.addTerm(1.0, vars[i][j]);
         model.addConstr(expr, GRB.EQUAL, 2.0, "deg2_"+String.valueOf(i));
       }
-      
-      for (int i = 0; i < n; i++) {
-          GRBLinExpr expr = new GRBLinExpr();
-          for (int j = 0; j < n; j++)
-            expr.addTerm(1.0, vars2[i][j]);
-          model.addConstr(expr, GRB.EQUAL, 2.0, "deg2_"+String.valueOf(i));
-        }
 
-      // coupling constraints 
-      
-      for (int i = 0; i < n; i++) {
-          for (int j = 0; j < n; j++) {
-        	  GRBLinExpr expr = new GRBLinExpr();
-        	  expr.addTerm(1.0, vars1[i][j]);
-        	  expr.addTerm(1.0, vars2[i][j]);
-        	  model.addConstr(expr, GRB.LESS_EQUAL, 1.0, "coupling_"+String.valueOf(i)+String.valueOf(j));
-          }
-        }
-      
       // Forbid edge from node back to itself
 
-      for (int i = 0; i < n; i++) {
-        vars1[i][i].set(GRB.DoubleAttr.UB, 0.0);
-        vars2[i][i].set(GRB.DoubleAttr.UB, 0.0);
-      }
-      
-      model.setCallback(new Tsp2(vars1,vars2));
+      for (int i = 0; i < n; i++)
+        vars[i][i].set(GRB.DoubleAttr.UB, 0.0);
+
+      model.setCallback(new Tsp_rl(vars));
       model.optimize();
 
       if (model.get(GRB.IntAttr.SolCount) > 0) {
-        int[] tour1 = findsubtour(model.get(GRB.DoubleAttr.X, vars1));
-        assert tour1.length == n;
+        int[] tour = findsubtour(model.get(GRB.DoubleAttr.X, vars));
+        assert tour.length == n;
 
         System.out.print("Tour: ");
-        for (int i = 0; i < tour1.length; i++)
-          System.out.print(String.valueOf(tour1[i]) + " ");
-        System.out.println();
-        
-        int[] tour2 = findsubtour(model.get(GRB.DoubleAttr.X, vars2));
-        assert tour2.length == n;
-
-        System.out.print("Tour: ");
-        for (int i = 0; i < tour2.length; i++)
-          System.out.print(String.valueOf(tour2[i]) + " ");
+        for (int i = 0; i < tour.length; i++)
+          System.out.print(String.valueOf(tour[i]) + " ");
         System.out.println();
       }
 

@@ -7,7 +7,7 @@
  * 
  */
 
-package models.switches.gurobi;
+package models.switches.gurobi.olds;
 
 import java.io.BufferedReader;
 import java.io.FileNotFoundException;
@@ -45,6 +45,7 @@ import gurobi.GRBVar;
 import instances.Instance;
 import instances.networks.edges.E;
 import instances.networks.vertices.V;
+import models.switches.gurobi.GurobiParameters;
 
 public class SolverPMedianHybrid extends GRBCallback {
 

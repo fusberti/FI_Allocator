@@ -1,4 +1,4 @@
-package models.switches.gurobi;
+package models.switches.gurobi.olds;
 /* Copyright 2020, Gurobi Optimization, LLC */
 
 // Solve a traveling salesman problem on a randomly generated set of
@@ -10,10 +10,10 @@ package models.switches.gurobi;
 
 import gurobi.*;
 
-public class Tsp_rl extends GRBCallback {
+public class Tsp extends GRBCallback {
   private GRBVar[][] vars;
 
-  public Tsp_rl(GRBVar[][] xvars) {
+  public Tsp(GRBVar[][] xvars) {
     vars = xvars;
   }
 
@@ -113,7 +113,7 @@ public class Tsp_rl extends GRBCallback {
 //      System.exit(1);
 //    }
 
-    int n = 300;
+    int n = 200;
 
     try {
       GRBEnv   env   = new GRBEnv();
@@ -157,7 +157,7 @@ public class Tsp_rl extends GRBCallback {
       for (int i = 0; i < n; i++)
         vars[i][i].set(GRB.DoubleAttr.UB, 0.0);
 
-      model.setCallback(new Tsp_rl(vars));
+      model.setCallback(new Tsp(vars));
       model.optimize();
 
       if (model.get(GRB.IntAttr.SolCount) > 0) {
