@@ -588,6 +588,7 @@ public class SolverEdgePartition_new extends GRBCallback {
 		
 		
 		// new FI Violation constraints
+		// TEM ALGUMA COISA ERRADA NESSAS RESTRICOES
 		
 		Iterator<V> iterNodes = g.getVertices().iterator();
 		
@@ -619,21 +620,22 @@ public class SolverEdgePartition_new extends GRBCallback {
 						if (countGroup[edgeGroup[outEdge.id]] > 1) {
 							if (edgeGroup[outEdge.id] == group1 || group1 < 0) {
 								group1 = edgeGroup[outEdge.id];
-								if (terms1 < 3)
+								if (terms1 < 2) {
 									constraint.addTerm(1, x[outEdge.id][group1]);
-								terms1++;
+									terms1++;
+								}
 								
 							} else if (edgeGroup[outEdge.id] == group2 || group2 < 0) {
 								group2 = edgeGroup[outEdge.id];
-								if (terms2 < 3)	
+								if (terms2 < 2)	{
 									constraint.addTerm(1, x[outEdge.id][group2]);
-								terms2++;
+									terms2++;
+								}
 							}
 						}
-						
-						if ((terms1 == 2)&&(terms2 == 2)) {
-							addLazy(constraint, GRB.LESS_EQUAL, 3);
-						}
+					}
+					if ((terms1 == 2)&&(terms2 == 2)) {
+						addLazy(constraint, GRB.LESS_EQUAL, 3);
 					}
 				}
 			}
