@@ -493,7 +493,7 @@ public class SolverEdgePartition_new extends GRBCallback {
 			// eliminação de simetria 2
 			//this.setSymmetryBreaking2(model);
 
-			this.setInitialSolution(model, "inisols/" + this.getInst().getParameters().getInstanceName().substring(this.getInst().getParameters().getInstanceName().lastIndexOf("/")+1));
+			//this.setInitialSolution(model, "inisols/" + this.getInst().getParameters().getInstanceName().substring(this.getInst().getParameters().getInstanceName().lastIndexOf("/")+1));
 
 			model.update();
 
@@ -588,18 +588,18 @@ public class SolverEdgePartition_new extends GRBCallback {
 		
 		
 		// new FI Violation constraints
-		// TEM ALGUMA COISA ERRADA NESSAS RESTRICOES
 		
 		Iterator<V> iterNodes = g.getVertices().iterator();
 		
 		while (iterNodes.hasNext()) {
 			V node = iterNodes.next();
-			if (g.getSuccessorCount(node) > 3) {
+			if (g.getSuccessorCount(node) > 2) {
 				
 				int countGroup[] = new int[inst.getParameters().getNumFI() + 1];
 				int numGroups = 0;
 				
-				Iterator<E> outEdges = g.getOutEdges(node).iterator();
+				//Iterator<E> outEdges = g.getOutEdges(node).iterator();
+				Iterator<E> outEdges = g.getIncidentEdges(node).iterator();
 				while (outEdges.hasNext()) {
 					E outEdge = outEdges.next();
 					countGroup[edgeGroup[outEdge.id]]++;
@@ -614,7 +614,7 @@ public class SolverEdgePartition_new extends GRBCallback {
 					int group2 = -1, terms2 = 0;
 					GRBLinExpr constraint = new GRBLinExpr();
 
-					outEdges = g.getOutEdges(node).iterator();
+					outEdges = g.getIncidentEdges(node).iterator();
 					while (outEdges.hasNext()) {
 						E outEdge = outEdges.next();
 						if (countGroup[edgeGroup[outEdge.id]] > 1) {

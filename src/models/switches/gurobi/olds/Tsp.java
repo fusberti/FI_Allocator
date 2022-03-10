@@ -113,7 +113,7 @@ public class Tsp extends GRBCallback {
 //      System.exit(1);
 //    }
 
-    int n = 200;
+    int n = 250;
 
     try {
       GRBEnv   env   = new GRBEnv();
