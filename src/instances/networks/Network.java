@@ -169,7 +169,7 @@ public Network(String filename, Instance inst) {
 		    	
 		    	this.mapEdgeIndex.put(g.getEdgeCount(),edge);
 		    	
-//		    	System.out.println(edge.id+" "+nodeLabel1+" "+mapNodeIndex.get(nodeLabel1)+" "+nodeLabel2+" "+mapNodeIndex.get(nodeLabel2));
+		    	System.out.println(edge.id+" "+nodeLabel1+" "+mapNodeIndex.get(nodeLabel1)+" "+nodeLabel2+" "+mapNodeIndex.get(nodeLabel2));
 		    	
 		    	g.addEdge(edge, node1, node2,EdgeType.DIRECTED);
 
@@ -183,6 +183,9 @@ public Network(String filename, Instance inst) {
 //	    	for (E edge : listEdges)
 //				System.out.printf("Arco %d (%d,%d) length: %.1f\n", edge.id, edge.node1.id, edge.node2.id, edge.dist);
 //	    	
+	    	
+	    	//calcula as distancias acumuladas por no
+	    	this.calcSumDist(root);
 	    	
 	    	    	    	
 	    } catch (Exception e) {
@@ -373,7 +376,32 @@ public Network(String filename, Instance inst) {
     	//encontra proximos ramos irmaos de cada no
     	this.findSuccessors(root);
     	
+    	//calcula as distancias acumuladas por no
+    	this.calcSumDist(root);
+    	
 	}	
+	
+	public double calcSumDist(V node) {
+
+		Iterator<E> iterEdges;
+
+		node.sumDist = 0;		
+		
+		iterEdges = g.getOutEdges(node).iterator();
+		while (iterEdges.hasNext()) {
+			
+			E outEdge = iterEdges.next();
+			node.sumDist += outEdge.dist;
+			node.sumDist += calcSumDist(g.getDest(outEdge));
+		
+		}		
+				
+		//root node does not have an incoming edges
+		return node.sumDist;
+	    
+	}	
+
+	
 	
 //	public static void main(String[] args) throws IOException {
 //

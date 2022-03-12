@@ -14,7 +14,7 @@ public class E {
 	public double fl;
 	public double p;
 	// fault indicator
-	public double dist; // km
+	public double dist; // length in km
 	public int iniSol_district;
 	public boolean iniSol_isCenter;
 

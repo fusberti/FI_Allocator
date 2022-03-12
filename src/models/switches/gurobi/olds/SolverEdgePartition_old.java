@@ -7,7 +7,7 @@
  * 
  */
 
-package models.switches.gurobi;
+package models.switches.gurobi.olds;
 
 import java.io.BufferedReader;
 import java.io.FileNotFoundException;
@@ -46,14 +46,9 @@ import gurobi.GRBVar;
 import instances.Instance;
 import instances.networks.edges.E;
 import instances.networks.vertices.V;
+import models.switches.gurobi.GurobiParameters;
 
-class OrdenaPorId implements Comparator<E> {
-	public int compare(E edge1, E edge2) {
-		return edge1.id - edge2.id;
-	}
-}
-
-public class SolverEdgePartition_new extends GRBCallback {
+public class SolverEdgePartition_old extends GRBCallback {
 
 	public Instance inst;
 	public static Graph<V, E> g;
@@ -63,20 +58,20 @@ public class SolverEdgePartition_new extends GRBCallback {
 	final char tipoBinary = GRB.BINARY;
 	public static GRBEnv env;
 	public static GRBModel model;
-	public GRBVar[] x[], Sum;
+	public GRBVar[] x[];
 
 	private int edgeGroup[];
 	private boolean visitedEdges[];
 	private boolean fiLocations[];
 
-	public SolverEdgePartition_new(String[] args) {
+	public SolverEdgePartition_old(String[] args) {
 		this.inst = new Instance(args);
 		this.g = this.inst.net.getG();
 	}
 
 	public static void main(String[] args) {
 
-		SolverEdgePartition_new gurobi = null;
+		SolverEdgePartition_old gurobi = null;
 		String instanciaNome = null;
 
 		try {
@@ -94,7 +89,7 @@ public class SolverEdgePartition_new extends GRBCallback {
 
 						instanciaNome = stok.sval;
 
-						gurobi = new SolverEdgePartition_new(args);
+						gurobi = new SolverEdgePartition_old(args);
 
 						System.out.println(gurobi.getInst().getParameters().getInstanceName());
 
@@ -163,7 +158,16 @@ public class SolverEdgePartition_new extends GRBCallback {
 	private void generateOF(GRBModel model, GRBQuadExpr ofexpr) {
 
 		for (int k = 0; k <= inst.parameters.getNumFI(); k++) {
-			ofexpr.addTerm(1, Sum[k], Sum[k]);
+			Iterator<E> iterEdges = g.getEdges().iterator();
+			while (iterEdges.hasNext()) {
+				E edge = iterEdges.next();
+				Iterator<E> iterEdges2 = g.getEdges().iterator();
+				while (iterEdges2.hasNext()) {
+					E edge2 = iterEdges2.next();
+					double objvalsX = edge.dist * edge2.dist;
+					ofexpr.addTerm(objvalsX, x[edge.id][k], x[edge2.id][k]);
+				}
+			}
 		}
 	}
 
@@ -193,26 +197,6 @@ public class SolverEdgePartition_new extends GRBCallback {
 
 	}
 	
-	// variaveis tipo Sum_k -- Establishes the sum of distances for each part k 
-	private void defineVarSum(GRBModel model, int indVar, GRBQuadExpr ofexpr) {
-
-		// variaveis tipo X
-		Sum = new GRBVar[inst.parameters.getNumFI() + 1];
-
-		try {
-
-				double lbX = 0.0;
-				double ubX = Double.MAX_VALUE;
-				for (int k = 0; k <= inst.parameters.getNumFI(); k++) {
-					Sum[k] = model.addVar(lbX, ubX, 0.0f, tipoFloat, "Sum[" + k + "]");
-				}
-
-		} catch (GRBException e) {
-			System.out.println("Error code: " + e.getErrorCode() + ". " + e.getMessage());
-		}
-
-	}
-
 	// RESTRICAO (0): sum x_ij = 1 \in k
 	// Particao de arestas.
 	private void addConstraint0(GRBModel model) {
@@ -232,27 +216,6 @@ public class SolverEdgePartition_new extends GRBCallback {
 		}
 	}
 	
-	// RESTRICAO (1): Sum_k = sum x^k_ij k
-	// Particao de arestas.
-	private void addConstraint1(GRBModel model) {
-		try {	
-			
-			for (int k = 0; k <= inst.parameters.getNumFI(); k++) {
-				GRBLinExpr constraint = new GRBLinExpr();
-				Iterator<E> iterEdges = g.getEdges().iterator();
-				while (iterEdges.hasNext()) {
-					E edge = iterEdges.next();
-					constraint.addTerm(-edge.dist, x[edge.id][k]);
-				}
-				constraint.addTerm(1, Sum[k]);
-				model.addConstr(constraint, GRB.EQUAL, 0, "c1_" + k);
-			}
-
-		} catch (GRBException e) {
-			System.out.println("Error code: " + e.getErrorCode() + ". " + e.getMessage());
-		}
-	}
-
 	public Collection<E> getEdgesInPath(V orig, V dest) {
 		List<E> path = new ArrayList<E>();
 		E edge = g.findEdge(orig, dest);
@@ -427,7 +390,6 @@ public class SolverEdgePartition_new extends GRBCallback {
 
 			// Create variables
 			this.defineVarX(model, 0, ofexpr);
-			this.defineVarSum(model, 1, ofexpr);
 			this.generateOF(model, ofexpr);
 
 			model.set(GRB.IntParam.LazyConstraints, 1);
@@ -440,8 +402,6 @@ public class SolverEdgePartition_new extends GRBCallback {
 
 			// RESTRICAO (0): sum x_ij = 1 \in k
 			this.addConstraint0(model);
-			
-			this.addConstraint1(model);
 
 			//this.setInitialSolution(model, "inisols/" + this.getInst().getParameters().getInstanceName().substring(this.getInst().getParameters().getInstanceName().lastIndexOf("/")+1));
 

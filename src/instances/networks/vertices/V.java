@@ -24,6 +24,7 @@ public class V {
 	public double distFromSE; // km
 	public double coordX;
 	public double coordY;
+	public double sumDist; // accumulated downstream length in km
 
 	public V(int id, int label,double x, double y) {
 		this.id = id;
