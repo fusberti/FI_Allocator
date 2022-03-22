@@ -169,7 +169,7 @@ public Network(String filename, Instance inst) {
 		    	
 		    	this.mapEdgeIndex.put(g.getEdgeCount(),edge);
 		    	
-		    	System.out.println(edge.id+" "+nodeLabel1+" "+mapNodeIndex.get(nodeLabel1)+" "+nodeLabel2+" "+mapNodeIndex.get(nodeLabel2));
+		    	//System.out.println(edge.id+" "+nodeLabel1+" "+mapNodeIndex.get(nodeLabel1)+" "+nodeLabel2+" "+mapNodeIndex.get(nodeLabel2));
 		    	
 		    	g.addEdge(edge, node1, node2,EdgeType.DIRECTED);
 

@@ -1,6 +1,8 @@
 package models.switches.gurobi.olds;
 /* Copyright 2020, Gurobi Optimization, LLC */
 
+import java.util.Random;
+
 // Solve a traveling salesman problem on a randomly generated set of
 // points using lazy constraints.   The base MIP model only includes
 // 'degree-2' constraints, requiring each node to have exactly
@@ -103,7 +105,7 @@ public class Tsp extends GRBCallback {
                                    int      j) {
     double dx = x[i]-x[j];
     double dy = y[i]-y[j];
-    return Math.sqrt(dx*dx+dy*dy);
+    return Math.floor(Math.sqrt(dx*dx+dy*dy)+0.5);
   }
 
   public static void main(String[] args) {
@@ -113,7 +115,7 @@ public class Tsp extends GRBCallback {
 //      System.exit(1);
 //    }
 
-    int n = 250;
+    int n = 200;
 
     try {
       GRBEnv   env   = new GRBEnv();
@@ -125,12 +127,18 @@ public class Tsp extends GRBCallback {
 
       double[] x = new double[n];
       double[] y = new double[n];
-
+      
+      Random myRand = new Random(1);
       for (int i = 0; i < n; i++) {
-        x[i] = Math.random();
-        y[i] = Math.random();
+        x[i] = myRand.nextDouble(100);
+        y[i] = myRand.nextDouble(100);
       }
-
+      
+//      for (int i = 0; i < n; i++) {
+//        x[i] = myRand.nextDouble(100);
+//        y[i] = myRand.nextDouble(100);
+//      }    
+      
       // Create variables
 
       GRBVar[][] vars = new GRBVar[n][n];

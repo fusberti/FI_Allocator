@@ -47,7 +47,7 @@ import instances.Instance;
 import instances.networks.edges.E;
 import instances.networks.vertices.V;
 
-public class SolverFlows {
+public class SolverFlows extends GRBCallback {
 
 	public Instance inst;
 	public static Graph<V, E> g;
@@ -59,7 +59,7 @@ public class SolverFlows {
 	public static GRBModel model;
 	public GRBVar[] yt, yh, dt, dh, ft, fh;
 	public GRBVar dr;
-	//public double bigM;
+	public double totalDist;
 
 	public SolverFlows(String[] args) {
 		this.inst = new Instance(args);
@@ -67,7 +67,7 @@ public class SolverFlows {
 		Iterator<E> iterEdges = g.getEdges().iterator();
 		while (iterEdges.hasNext()) {
 			E edge = iterEdges.next();
-			//bigM += edge.dist;
+			totalDist += edge.dist;
 		}
 	}
 
@@ -160,6 +160,83 @@ public class SolverFlows {
 			System.err.println("Erro leitura da instancia");
 		}
 
+	}
+	
+	double[] yt_cut, yh_cut;
+	GRBLinExpr cut;
+	
+	private double probeMaxCut(V root, double sumY)  {
+		
+		double sumDist = 0;
+		
+		Iterator<E> outRootEdges = g.getOutEdges(root).iterator();
+		while (outRootEdges.hasNext()) {
+			E edge = outRootEdges.next();
+			if (sumY + yh_cut[edge.id] < 1.0) {
+				double sumYlocal = sumY + yh_cut[edge.id];
+				double downDist = 0; 
+				if (sumYlocal + yt_cut[edge.id] < 1.0) {
+					sumYlocal += yt_cut[edge.id];
+					downDist = probeMaxCut(g.getDest(edge), sumYlocal);
+					cut.addTerm(-downDist, yt[edge.id]);
+				}
+				cut.addTerm(-downDist-edge.dist, yh[edge.id]);
+
+				sumDist += edge.dist + downDist;
+			}
+		}
+		
+		return sumDist;
+		
+	}
+
+	
+	
+	private void fractionalSeparation() throws GRBException, IOException {
+
+		yt_cut = getNodeRel(yt);
+		yh_cut = getNodeRel(yh);
+		
+		
+		Iterator<E> iterEdges = g.getEdges().iterator();
+		while (iterEdges.hasNext()) {
+			E edge = iterEdges.next();
+			cut = new GRBLinExpr();
+			double downDist = probeMaxCut(g.getDest(edge), 0);
+			cut.addTerm(1, dt[edge.id]);
+			cut.addTerm(1, ft[edge.id]);
+			cut.addTerm(-downDist, yt[edge.id]);
+			addCut(cut, GRB.GREATER_EQUAL, downDist);
+			
+			cut = new GRBLinExpr();
+			downDist = probeMaxCut(g.getDest(edge), 0);
+			cut.addTerm(1, dh[edge.id]);
+			cut.addTerm(1, fh[edge.id]);
+			cut.addTerm(-downDist, yt[edge.id]);
+			cut.addTerm(-downDist-edge.dist, yh[edge.id]);
+			addCut(cut, GRB.GREATER_EQUAL, downDist+edge.dist);
+			System.out.print(cut.toString());
+		}
+		
+	}
+	
+	@Override
+	protected void callback() {
+		try {
+			if (where == GRB.CB_MIPNODE) {
+				// MIP node callback
+				//System.out.println("**** New node fractional sol****");
+				if (getIntInfo(GRB.CB_MIPNODE_STATUS) == GRB.OPTIMAL) {
+					fractionalSeparation();
+				}
+			}
+		} catch (GRBException e) {
+			System.out.println("Error code: " + e.getErrorCode() + ". " + e.getMessage());
+			e.printStackTrace();
+		} catch (IOException e) {
+			System.out.println("Can't write in file!: " + e.getMessage());
+			e.printStackTrace();
+		}
 	}
 
 	// generate the quadractic objective function
@@ -373,7 +450,7 @@ public class SolverFlows {
 		}
 	}
 	
-	// RESTRICAO (5): ft <= M (1 - yt)
+	// RESTRICAO (5): dt <= M (1 - yt)
 	// Alocacao de sinalizadores
 	private void addConstraint5(GRBModel model) {
 		try {
@@ -392,7 +469,7 @@ public class SolverFlows {
 		}
 	}
 	
-	// RESTRICAO (6): fh <= M (1 - yh)
+	// RESTRICAO (6): dh <= M (1 - yh)
 	// Alocacao de sinalizadores
 	private void addConstraint6(GRBModel model) {
 		try {
@@ -429,6 +506,26 @@ public class SolverFlows {
 			System.out.println("Error code: " + e.getErrorCode() + ". " + e.getMessage());
 		}
 	}
+	
+	// RESTRICAO (8): sum d + omega = total_dist
+	// Distancia acumulada na raiz
+	private void addConstraint8(GRBModel model) {
+		try {
+			
+			GRBLinExpr constraint = new GRBLinExpr();
+			Iterator<E> iterEdges = g.getEdges().iterator();
+			while (iterEdges.hasNext()) {
+				E edge = iterEdges.next();
+				constraint.addTerm(1, dh[edge.id]);
+				constraint.addTerm(1, dt[edge.id]);
+			}
+			constraint.addTerm(1, dr);
+			model.addConstr(constraint, GRB.GREATER_EQUAL, totalDist, "sumDist");
+			
+		} catch (GRBException e) {
+			System.out.println("Error code: " + e.getErrorCode() + ". " + e.getMessage());
+		}
+	}
 
 	private void populateNewModel(GRBModel model) {
 
@@ -443,8 +540,8 @@ public class SolverFlows {
 			this.defineVarDr(model);
 			this.generateOF(model, ofexpr);
 
-			//model.set(GRB.IntParam.LazyConstraints, 1);
-			//model.setCallback(this);
+			model.set(GRB.IntParam.LazyConstraints, 1);
+			model.setCallback(this);
 
 			// Integrate new variables
 			model.update();
@@ -466,6 +563,8 @@ public class SolverFlows {
 			this.addConstraint6(model);
 			
 			this.addConstraint7(model);
+			
+			//this.addConstraint8(model);
 
 
 			model.update();
