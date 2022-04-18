@@ -24,6 +24,7 @@ import java.util.Comparator;
 import java.util.Iterator;
 import java.util.List;
 import java.util.ListIterator;
+import java.util.Locale;
 
 import edu.uci.ics.jung.graph.Graph;
 import gurobi.GRB;
@@ -134,6 +135,8 @@ public class SolverEdgePartition_new extends GRBCallback {
 //						System.out.println("maxSwitches " + gurobi.inst.parameters.getNumSwitches());
 
 						//logfile.close();
+						
+						gurobi.printResults(model);
 
 						model.dispose();
 						env.dispose();
@@ -451,6 +454,30 @@ public class SolverEdgePartition_new extends GRBCallback {
 			System.out.println("Error code: " + e.getErrorCode() + ". " + e.getMessage());
 		}
 
+	}
+	
+	private void printResults(GRBModel model) throws IOException, GRBException {
+		FileWriter solFile = new FileWriter("resultados.csv",true);
+		double distToTime = inst.getParameters().getFailureRate() * 1 / inst.getParameters().getCrewVelocity();
+		double totalDistance = 0;
+		Iterator<E> iterEdges = g.getEdges().iterator();
+		while (iterEdges.hasNext()) {
+		E edge = iterEdges.next();
+		totalDistance += edge.dist;
+		}
+		String str= inst.getParameters().getInstanceName().substring(0, inst.getParameters().getInstanceName().lastIndexOf('.')) + "\t"
+		+ inst.getParameters().getNumFI() + "\t" 
+		+ String.format(Locale.US, "%.2f",model.get(GRB.DoubleAttr.ObjVal)) + "\t"
+		+ String.format(Locale.US, "%.2f",model.get(GRB.DoubleAttr.ObjBound)) + "\t"
+		+ String.format(Locale.US, "%.2f",model.get(GRB.DoubleAttr.ObjVal)*distToTime) + "\t"
+		+ String.format(Locale.US, "%.2f",model.get(GRB.DoubleAttr.ObjBound)*distToTime) + "\t"
+		+ String.format(Locale.US, "%.2f",model.get(GRB.DoubleAttr.ObjVal)*distToTime/(totalDistance*inst.getParameters().getFailureRate())) + "\t"
+		+ String.format(Locale.US, "%.2f",model.get(GRB.DoubleAttr.ObjBound)*distToTime/(totalDistance*inst.getParameters().getFailureRate())) + "\t"
+		+ String.format(Locale.US, "%.2f",model.get(GRB.DoubleAttr.MIPGap)) + "\t"
+		+ String.format(Locale.US, "%.2f",model.get(GRB.DoubleAttr.Runtime));
+
+		solFile.write(str + "\n");
+		solFile.close();
 	}
 
 	public Instance getInst() {

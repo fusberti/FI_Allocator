@@ -24,6 +24,7 @@ import java.util.Comparator;
 import java.util.Iterator;
 import java.util.List;
 import java.util.ListIterator;
+import java.util.Locale;
 
 import edu.uci.ics.jung.graph.Graph;
 import gurobi.GRB;
@@ -60,6 +61,7 @@ public class SolverFlows extends GRBCallback {
 	public GRBVar[] yt, yh, dt, dh, ft, fh;
 	public GRBVar dr;
 	public double totalDist;
+	//int count = 1000;
 
 	public SolverFlows(String[] args) {
 		this.inst = new Instance(args);
@@ -129,12 +131,8 @@ public class SolverFlows extends GRBCallback {
 							}
 						}
 						
-						
-//						for (int j = 0; j < fvars.length; j++) {
-//							if (x[j] != 0.0) {
-//								System.out.println(vnames[j] + "= " + x[j]);
-//							}
-//						}
+						gurobi.printResults(model);
+
 
 						//logfile.close();
 
@@ -162,25 +160,49 @@ public class SolverFlows extends GRBCallback {
 
 	}
 	
+	private void printResults(GRBModel model) throws IOException, GRBException {
+		FileWriter solFile = new FileWriter("resultados.csv",true);
+		double distToTime = inst.getParameters().getFailureRate() * 1 / inst.getParameters().getCrewVelocity();
+		double totalDistance = 0;
+		Iterator<E> iterEdges = g.getEdges().iterator();
+		while (iterEdges.hasNext()) {
+		E edge = iterEdges.next();
+		totalDistance += edge.dist;
+		}
+		String str= inst.getParameters().getInstanceName().substring(0, inst.getParameters().getInstanceName().lastIndexOf('.')) + "\t"
+		+ inst.getParameters().getNumFI() + "\t" 
+		+ String.format(Locale.US, "%.2f",model.get(GRB.DoubleAttr.ObjVal)) + "\t"
+		+ String.format(Locale.US, "%.2f",model.get(GRB.DoubleAttr.ObjBound)) + "\t"
+		+ String.format(Locale.US, "%.2f",model.get(GRB.DoubleAttr.ObjVal)*distToTime) + "\t"
+		+ String.format(Locale.US, "%.2f",model.get(GRB.DoubleAttr.ObjBound)*distToTime) + "\t"
+		+ String.format(Locale.US, "%.2f",model.get(GRB.DoubleAttr.ObjVal)*distToTime/(totalDistance*inst.getParameters().getFailureRate())) + "\t"
+		+ String.format(Locale.US, "%.2f",model.get(GRB.DoubleAttr.ObjBound)*distToTime/(totalDistance*inst.getParameters().getFailureRate())) + "\t"
+		+ String.format(Locale.US, "%.2f",model.get(GRB.DoubleAttr.MIPGap)) + "\t"
+		+ String.format(Locale.US, "%.2f",model.get(GRB.DoubleAttr.Runtime));
+
+		solFile.write(str + "\n");
+		solFile.close();
+	}
+	
 	double[] yt_cut, yh_cut;
 	GRBLinExpr cut;
 	
-	private double probeMaxCut(V root, double sumY)  {
+	private double probeMaxCut(V root, double sumY, double budget)  {
 		
 		double sumDist = 0;
 		
 		Iterator<E> outRootEdges = g.getOutEdges(root).iterator();
 		while (outRootEdges.hasNext()) {
 			E edge = outRootEdges.next();
-			if (sumY + yh_cut[edge.id] < 1.0) {
+			if (sumY + yh_cut[edge.id] < budget) {
 				double sumYlocal = sumY + yh_cut[edge.id];
 				double downDist = 0; 
-				if (sumYlocal + yt_cut[edge.id] < 1.0) {
+				if (sumYlocal + yt_cut[edge.id] < budget) {
 					sumYlocal += yt_cut[edge.id];
-					downDist = probeMaxCut(g.getDest(edge), sumYlocal);
-					cut.addTerm(-downDist, yt[edge.id]);
+					downDist = probeMaxCut(g.getDest(edge), sumYlocal, budget);
+					cut.addTerm(downDist, yt[edge.id]);
 				}
-				cut.addTerm(-downDist-edge.dist, yh[edge.id]);
+				cut.addTerm(downDist+edge.dist, yh[edge.id]);
 
 				sumDist += edge.dist + downDist;
 			}
@@ -201,24 +223,49 @@ public class SolverFlows extends GRBCallback {
 		Iterator<E> iterEdges = g.getEdges().iterator();
 		while (iterEdges.hasNext()) {
 			E edge = iterEdges.next();
+
 			cut = new GRBLinExpr();
-			double downDist = probeMaxCut(g.getDest(edge), 0);
-			cut.addTerm(1, dt[edge.id]);
-			cut.addTerm(1, ft[edge.id]);
-			cut.addTerm(-downDist, yt[edge.id]);
-			addCut(cut, GRB.GREATER_EQUAL, downDist);
+			double downDist = probeMaxCut(g.getDest(edge), 0, yt_cut[edge.id]);
+			if (cut.size() > 0) {
+				cut.addTerm(1, dt[edge.id]);
+				//cut.addTerm(1, ft[edge.id]);
+				cut.addTerm(-downDist, yt[edge.id]);
+				addLazy(cut, GRB.GREATER_EQUAL, 0);
+			}
 			
 			cut = new GRBLinExpr();
-			downDist = probeMaxCut(g.getDest(edge), 0);
-			cut.addTerm(1, dh[edge.id]);
-			cut.addTerm(1, fh[edge.id]);
-			cut.addTerm(-downDist, yt[edge.id]);
-			cut.addTerm(-downDist-edge.dist, yh[edge.id]);
-			addCut(cut, GRB.GREATER_EQUAL, downDist+edge.dist);
-			System.out.print(cut.toString());
+			downDist = probeMaxCut(g.getDest(edge), yt_cut[edge.id], yh_cut[edge.id]);
+			if (cut.size() > 0) {
+				cut.addTerm(1, dh[edge.id]);
+				//cut.addTerm(1, fh[edge.id]);
+				cut.addTerm(downDist, yt[edge.id]);
+				cut.addTerm(-downDist-edge.dist, yh[edge.id]);
+				addLazy(cut, GRB.GREATER_EQUAL, 0);
+			}
+			
+			cut = new GRBLinExpr();
+			downDist = probeMaxCut(g.getDest(edge), yt_cut[edge.id], 1);
+			if (cut.size() > 0) {
+				//cut.addTerm(1, dt[edge.id]);
+				cut.addTerm(1, ft[edge.id]);
+				cut.addTerm(downDist, yt[edge.id]);
+				addLazy(cut, GRB.GREATER_EQUAL, downDist);
+			}
+			
+			cut = new GRBLinExpr();
+			downDist = probeMaxCut(g.getDest(edge), yt_cut[edge.id]+yh_cut[edge.id], 1);
+			if (cut.size() > 0) {
+				//cut.addTerm(1, dh[edge.id]);
+				cut.addTerm(1, fh[edge.id]);
+				cut.addTerm(downDist, yt[edge.id]);
+				cut.addTerm(downDist+edge.dist, yh[edge.id]);
+				addLazy(cut, GRB.GREATER_EQUAL, downDist+edge.dist);
+			}
+
 		}
 		
 	}
+	
 	
 	@Override
 	protected void callback() {
@@ -226,9 +273,12 @@ public class SolverFlows extends GRBCallback {
 			if (where == GRB.CB_MIPNODE) {
 				// MIP node callback
 				//System.out.println("**** New node fractional sol****");
+//				if (count < 100) {
+//					count++;
 				if (getIntInfo(GRB.CB_MIPNODE_STATUS) == GRB.OPTIMAL) {
 					fractionalSeparation();
 				}
+//				}
 			}
 		} catch (GRBException e) {
 			System.out.println("Error code: " + e.getErrorCode() + ". " + e.getMessage());
@@ -564,7 +614,7 @@ public class SolverFlows extends GRBCallback {
 			
 			this.addConstraint7(model);
 			
-			//this.addConstraint8(model);
+			this.addConstraint8(model);
 
 
 			model.update();
