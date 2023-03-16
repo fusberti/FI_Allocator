@@ -83,6 +83,8 @@ public class SolverEdgePartition_new extends GRBCallback {
 		try {
 			try {
 				try {
+					
+					System.out.println("Edge Partition Model");
 
 					Reader fileInst = new BufferedReader(new FileReader("instancias.txt"));
 					StreamTokenizer stok = new StreamTokenizer(fileInst);

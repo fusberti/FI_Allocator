@@ -48,7 +48,7 @@ import instances.Instance;
 import instances.networks.edges.E;
 import instances.networks.vertices.V;
 
-public class LiteratureModel extends GRBCallback {
+public class LiteratureModel {
 
 	public Instance inst;
 	public static Graph<V, E> g;
@@ -81,6 +81,8 @@ public class LiteratureModel extends GRBCallback {
 			try {
 				try {
 
+					System.out.println("Literature Model");
+					
 					Reader fileInst = new BufferedReader(new FileReader("instancias.txt"));
 					StreamTokenizer stok = new StreamTokenizer(fileInst);
 
@@ -213,92 +215,16 @@ public class LiteratureModel extends GRBCallback {
 
 	
 	
-	private void fractionalSeparation() throws GRBException, IOException {
-
-		yt_cut = getNodeRel(yt);
-		yh_cut = getNodeRel(yh);
-		
-		
-		Iterator<E> iterEdges = g.getEdges().iterator();
-		while (iterEdges.hasNext()) {
-			E edge = iterEdges.next();
-
-			cut = new GRBLinExpr();
-			double downDist = probeMaxCut(g.getDest(edge), 0, yt_cut[edge.id]);
-			if (cut.size() > 0) {
-				cut.addTerm(1, dt[edge.id]);
-				//cut.addTerm(1, ft[edge.id]);
-				cut.addTerm(-downDist, yt[edge.id]);
-				addLazy(cut, GRB.GREATER_EQUAL, 0);
-			}
-			
-			cut = new GRBLinExpr();
-			downDist = probeMaxCut(g.getDest(edge), yt_cut[edge.id], yh_cut[edge.id]);
-			if (cut.size() > 0) {
-				cut.addTerm(1, dh[edge.id]);
-				//cut.addTerm(1, fh[edge.id]);
-				cut.addTerm(downDist, yt[edge.id]);
-				cut.addTerm(-downDist-edge.dist, yh[edge.id]);
-				addLazy(cut, GRB.GREATER_EQUAL, 0);
-			}
-			
-			cut = new GRBLinExpr();
-			downDist = probeMaxCut(g.getDest(edge), yt_cut[edge.id], 1);
-			if (cut.size() > 0) {
-				//cut.addTerm(1, dt[edge.id]);
-				cut.addTerm(1, ft[edge.id]);
-				cut.addTerm(downDist, yt[edge.id]);
-				addLazy(cut, GRB.GREATER_EQUAL, downDist);
-			}
-			
-			cut = new GRBLinExpr();
-			downDist = probeMaxCut(g.getDest(edge), yt_cut[edge.id]+yh_cut[edge.id], 1);
-			if (cut.size() > 0) {
-				//cut.addTerm(1, dh[edge.id]);
-				cut.addTerm(1, fh[edge.id]);
-				cut.addTerm(downDist, yt[edge.id]);
-				cut.addTerm(downDist+edge.dist, yh[edge.id]);
-				addLazy(cut, GRB.GREATER_EQUAL, downDist+edge.dist);
-			}
-
-		}
-		
-	}
-	
-	
-	@Override
-	protected void callback() {
-		try {
-			if (where == GRB.CB_MIPNODE) {
-				// MIP node callback
-				//System.out.println("**** New node fractional sol****");
-//				if (count < 100) {
-//					count++;
-				if (getIntInfo(GRB.CB_MIPNODE_STATUS) == GRB.OPTIMAL) {
-					fractionalSeparation();
-				}
-//				}
-			}
-		} catch (GRBException e) {
-			System.out.println("Error code: " + e.getErrorCode() + ". " + e.getMessage());
-			e.printStackTrace();
-		} catch (IOException e) {
-			System.out.println("Can't write in file!: " + e.getMessage());
-			e.printStackTrace();
-		}
-	}
-
 	// generate the quadractic objective function
 	private void generateOF(GRBModel model, GRBQuadExpr ofexpr) {
 
 		Iterator<E> iterEdges = g.getEdges().iterator();
 		while (iterEdges.hasNext()) {
 			E edge = iterEdges.next();
-			ofexpr.addTerm(1, dt[edge.id], dt[edge.id]);
-			ofexpr.addTerm(1, dh[edge.id], dh[edge.id]);
+			//ofexpr.addTerm(edge.dist*inst.parameters.ro, t[edge.id]);
+			ofexpr.addTerm(edge.dist, t[edge.id]);
 		}
 		
-		ofexpr.addTerm(1, dr, dr);
 	}
 
 	// variaveis tipo Y -- y_ij = 1 indica que na fronteira do no i existe um
@@ -318,8 +244,8 @@ public class LiteratureModel extends GRBCallback {
 				// fault indicator
 				double lb = 0.0;
 				double ub = 1.0;
-				yt[edge.id] = model.addVar(lb, ub, 0.0f, tipoBinary, "yt[" + edge.id + "]");
-				yh[edge.id] = model.addVar(lb, ub, 0.0f, tipoBinary, "yh[" + edge.id + "]");
+				yt[edge.id] = model.addVar(lb, ub, 0.0f, tipoBinary, "yt[" + edge + "]");
+				yh[edge.id] = model.addVar(lb, ub, 0.0f, tipoBinary, "yh[" + edge + "]");
 				// ofexpr.addTerm(objvalsY, y[edge.id]);
 			}
 
@@ -343,11 +269,9 @@ public class LiteratureModel extends GRBCallback {
 				Iterator<E> iterEdges2 = g.getEdges().iterator();
 				while (iterEdges2.hasNext()) {
 					E edge2 = iterEdges2.next();
-					if (edge.id < edge2.id) {
-						double lb = 0.0;
-						double ub = g.getEdgeCount();
-						b[edge.id][edge2.id] = model.addVar(lb, ub, 0.0f, tipoInt, "b[" + edge2.id + "," + edge2.id + "]");
-					}
+					double lb = 0.0;
+					double ub = g.getEdgeCount();
+					b[edge.id][edge2.id] = model.addVar(lb, ub, 0.0f, tipoInt, "b[" + edge + "," + edge2 + "]");
 				}
 			}
 
@@ -372,11 +296,9 @@ public class LiteratureModel extends GRBCallback {
 				Iterator<E> iterEdges2 = g.getEdges().iterator();
 				while (iterEdges2.hasNext()) {
 					E edge2 = iterEdges2.next();
-					if (edge.id < edge2.id) {
-						double lb = 0.0;
-						double ub = 1.0;
-						l[edge.id][edge2.id] = model.addVar(lb, ub, 0.0f, tipoBinary, "l[" + edge2.id + "," + edge2.id + "]");
-					}
+					double lb = 0.0;
+					double ub = 1.0;
+					l[edge.id][edge2.id] = model.addVar(lb, ub, 0.0f, tipoBinary, "l[" + edge.id + "," + edge2.id + "]");
 				}
 			}
 
@@ -387,7 +309,7 @@ public class LiteratureModel extends GRBCallback {
 	}
 	
 	// variaveis tipo T -- t_e , tempo de localizacao para uma falha ocorrida na aresta e
-	private void defineVarF(GRBModel model) {
+	private void defineVarT(GRBModel model) {
 
 		// variaveis tipo Y
 		t = new GRBVar[g.getEdgeCount()];
@@ -429,8 +351,7 @@ public class LiteratureModel extends GRBCallback {
 		}
 	}
 	
-	// RESTRICAO (1): dt + ft = sum (fh)
-	// Alocacao de sinalizadores
+	// RESTRICAO (1): b_e1e2 = sum y_e   \forall e in Path(e1,e2)
 	private void addConstraint1(GRBModel model) {
 		try {
 			
@@ -444,168 +365,106 @@ public class LiteratureModel extends GRBCallback {
 					GRBLinExpr constraint = new GRBLinExpr();
 					constraint.addTerm(1, b[edge.id][edge2.id]);
 					
-					Iterator<E> path = g.getOutEdges(g.getDest(edge)).iterator();
-					while (path.hasNext()) {
-						E pathEdge = path.next();
-						path.addTerm(-1, fh[outEdge.id]);
+					if (edge != edge2) {
+						//Collection<E> path = getEdgesInPath(edge.node1,edge2.node1);
+						ArrayList<E> path = (ArrayList<E>) getEdgesInPath(edge,edge2);
+						E lca = path.get(0);
+						
+						// Inserindo FIs no caminho entre as duas arestas
+						//Iterator<E> iterPath = g.getOutEdges(g.getDest(edge)).iterator();
+						Iterator<E> iterPath = path.iterator();
+						while (iterPath.hasNext()) {
+							E pathEdge = iterPath.next();
+							if (pathEdge != edge && pathEdge != edge2 && pathEdge != lca) {
+								constraint.addTerm(-1, yt[pathEdge.id]);
+								constraint.addTerm(-1, yh[pathEdge.id]);
+							}
+						}
+						
+						// Tratando o caso de contorno para os FIs nas arestas extremas do caminho
+						if (edge != lca) {
+							// Caso em que o FI em tail yt deve fazer parte da restricao
+							constraint.addTerm(-1, yt[edge.id]);
+						} else {
+							constraint.addTerm(-1, yh[edge.id]);
+						}
+						
+						// Tratando o caso de contorno para os FIs nas arestas extremas do caminho
+						if (edge2 != lca) {
+							// Caso em que o FI em tail yt deve fazer parte da restricao
+							constraint.addTerm(-1, yt[edge2.id]);
+						} else {
+							constraint.addTerm(-1, yh[edge2.id]);
+						}
 					}
+					
+					model.addConstr(constraint, GRB.EQUAL, 0, "const1[" + edge + "," + edge2 + "]");
 				}
 			}
 			
-			
-			
-			Iterator<E> iterEdges = g.getEdges().iterator();
-			while (iterEdges.hasNext()) {
-				E edge = iterEdges.next();
-				GRBLinExpr constraint = new GRBLinExpr();
-				constraint.addTerm(1, dt[edge.id]);
-				constraint.addTerm(1, ft[edge.id]);
-				Iterator<E> outEdges = g.getOutEdges(g.getDest(edge)).iterator();
-				while (outEdges.hasNext()) {
-					E outEdge = outEdges.next();
-					constraint.addTerm(-1, fh[outEdge.id]);
-				}
-				model.addConstr(constraint, GRB.EQUAL, 0, "flow_t["+edge.id+"]");
-			}
-
 		} catch (GRBException e) {
 			System.out.println("Error code: " + e.getErrorCode() + ". " + e.getMessage());
 		}
 	}
-	
-	// RESTRICAO (2): dh + fh = dist + ft
-	// Alocacao de sinalizadores
+
+	// RESTRICAO (2): \epsilon - b_e1e2/M <= l_e1e2 <= 1 - b_e1e2/M 
 	private void addConstraint2(GRBModel model) {
 		try {
+			
 			Iterator<E> iterEdges = g.getEdges().iterator();
 			while (iterEdges.hasNext()) {
 				E edge = iterEdges.next();
-				GRBLinExpr constraint = new GRBLinExpr();
-				constraint.addTerm(1, fh[edge.id]);
-				constraint.addTerm(1, dh[edge.id]);
-				constraint.addTerm(-1, ft[edge.id]);
-				model.addConstr(constraint, GRB.EQUAL, edge.dist, "flow_h["+edge.id+"]");
-			}
+				Iterator<E> iterEdges2 = g.getEdges().iterator();
+				while (iterEdges2.hasNext()) {
+					E edge2 = iterEdges2.next();
+					
+					GRBLinExpr constraint = new GRBLinExpr();
+					constraint.addTerm(1/(double)g.getEdgeCount(), b[edge.id][edge2.id]);
+					constraint.addTerm(1, l[edge.id][edge2.id]);
+					model.addConstr(constraint, GRB.GREATER_EQUAL, 1e-5, "const2a[" + edge.id + "," + edge2.id + "]");
+					
+					constraint = new GRBLinExpr();
+					constraint.addTerm(1/(double)g.getEdgeCount(), b[edge.id][edge2.id]);
+					constraint.addTerm(1, l[edge.id][edge2.id]);
+					model.addConstr(constraint, GRB.LESS_EQUAL, 1, "const2b[" + edge.id + "," + edge2.id + "]");
 
+				}
+			}
+			
 		} catch (GRBException e) {
 			System.out.println("Error code: " + e.getErrorCode() + ". " + e.getMessage());
 		}
 	}
 	
-	// RESTRICAO (3): ft <= M (1 - yt)
-	// Alocacao de sinalizadores
+
+	// RESTRICAO (3): t_e2 = sum_e1 v*d*l_e1e2 
 	private void addConstraint3(GRBModel model) {
 		try {
-			Iterator<E> iterEdges = g.getEdges().iterator();
-			while (iterEdges.hasNext()) {
-				E edge = iterEdges.next();
-				double bigM = g.getDest(edge).sumDist;
-				GRBLinExpr constraint = new GRBLinExpr();
-				constraint.addTerm(1, ft[edge.id]);
-				constraint.addTerm(bigM, yt[edge.id]);
-				model.addConstr(constraint, GRB.LESS_EQUAL, bigM, "bigM_ft["+edge.id+"]");
-			}
-
-		} catch (GRBException e) {
-			System.out.println("Error code: " + e.getErrorCode() + ". " + e.getMessage());
-		}
-	}
-	
-	// RESTRICAO (4): fh <= M (1 - yh)
-	// Alocacao de sinalizadores
-	private void addConstraint4(GRBModel model) {
-		try {
-			Iterator<E> iterEdges = g.getEdges().iterator();
-			while (iterEdges.hasNext()) {
-				E edge = iterEdges.next();
-				double bigM = g.getDest(edge).sumDist + edge.dist;
-				GRBLinExpr constraint = new GRBLinExpr();
-				constraint.addTerm(1, fh[edge.id]);
-				constraint.addTerm(bigM, yh[edge.id]);
-				model.addConstr(constraint, GRB.LESS_EQUAL, bigM, "bigM_fh["+edge.id+"]");
-			}
-
-		} catch (GRBException e) {
-			System.out.println("Error code: " + e.getErrorCode() + ". " + e.getMessage());
-		}
-	}
-	
-	// RESTRICAO (5): dt <= M (1 - yt)
-	// Alocacao de sinalizadores
-	private void addConstraint5(GRBModel model) {
-		try {
-			Iterator<E> iterEdges = g.getEdges().iterator();
-			while (iterEdges.hasNext()) {
-				E edge = iterEdges.next();
-				double bigM = g.getDest(edge).sumDist;
-				GRBLinExpr constraint = new GRBLinExpr();
-				constraint.addTerm(1, dt[edge.id]);
-				constraint.addTerm(-bigM, yt[edge.id]);
-				model.addConstr(constraint, GRB.LESS_EQUAL, 0, "bigM_dt["+edge.id+"]");
-			}
-
-		} catch (GRBException e) {
-			System.out.println("Error code: " + e.getErrorCode() + ". " + e.getMessage());
-		}
-	}
-	
-	// RESTRICAO (6): dh <= M (1 - yh)
-	// Alocacao de sinalizadores
-	private void addConstraint6(GRBModel model) {
-		try {
-			Iterator<E> iterEdges = g.getEdges().iterator();
-			while (iterEdges.hasNext()) {
-				E edge = iterEdges.next();
-				double bigM = g.getDest(edge).sumDist + edge.dist;
-				GRBLinExpr constraint = new GRBLinExpr();
-				constraint.addTerm(1, dh[edge.id]);
-				constraint.addTerm(-bigM, yh[edge.id]);
-				model.addConstr(constraint, GRB.LESS_EQUAL, 0, "bigM_dh["+edge.id+"]");
-			}
-
-		} catch (GRBException e) {
-			System.out.println("Error code: " + e.getErrorCode() + ". " + e.getMessage());
-		}
-	}
-	
-	// RESTRICAO (7): dr = sum fh
-	// Distancia acumulada na raiz
-	private void addConstraint7(GRBModel model) {
-		try {
 			
-			GRBLinExpr constraint = new GRBLinExpr();
-			Iterator<E> outRootEdges = g.getOutEdges(inst.net.getRoot()).iterator();
-			while (outRootEdges.hasNext()) {
-				E edge = outRootEdges.next();
-				constraint.addTerm(-1, fh[edge.id]);
+			Iterator<E> iterEdges2 = g.getEdges().iterator();
+			while (iterEdges2.hasNext()) {
+
+				E edge2 = iterEdges2.next();
+				GRBLinExpr constraint = new GRBLinExpr();
+				constraint.addTerm(1, t[edge2.id]);
+				
+				Iterator<E> iterEdges = g.getEdges().iterator();
+				while (iterEdges.hasNext()) {
+
+					E edge = iterEdges.next();
+					//constraint.addTerm(inst.parameters.alpha*edge.dist, l[edge.id][edge2.id]);
+					constraint.addTerm(-edge.dist, l[edge.id][edge2.id]);
+
+				}
+				
+				model.addConstr(constraint, GRB.EQUAL, 0, "const3[" + edge2.id + "]");
 			}
-			constraint.addTerm(1, dr);
-			model.addConstr(constraint, GRB.EQUAL, 0, "dr_constraint");
 			
 		} catch (GRBException e) {
 			System.out.println("Error code: " + e.getErrorCode() + ". " + e.getMessage());
 		}
 	}
-	
-	// RESTRICAO (8): sum d + omega = total_dist
-	// Distancia acumulada na raiz
-	private void addConstraint8(GRBModel model) {
-		try {
-			
-			GRBLinExpr constraint = new GRBLinExpr();
-			Iterator<E> iterEdges = g.getEdges().iterator();
-			while (iterEdges.hasNext()) {
-				E edge = iterEdges.next();
-				constraint.addTerm(1, dh[edge.id]);
-				constraint.addTerm(1, dt[edge.id]);
-			}
-			constraint.addTerm(1, dr);
-			model.addConstr(constraint, GRB.GREATER_EQUAL, totalDist, "sumDist");
-			
-		} catch (GRBException e) {
-			System.out.println("Error code: " + e.getErrorCode() + ". " + e.getMessage());
-		}
-	}
+
 
 	private void populateNewModel(GRBModel model) {
 
@@ -615,13 +474,13 @@ public class LiteratureModel extends GRBCallback {
 
 			// Create variables
 			this.defineVarY(model);
-			this.defineVarD(model);
-			this.defineVarF(model);
-			this.defineVarDr(model);
+			this.defineVarB(model);
+			this.defineVarL(model);
+			this.defineVarT(model);
 			this.generateOF(model, ofexpr);
 
-			model.set(GRB.IntParam.LazyConstraints, 1);
-			model.setCallback(this);
+			//model.set(GRB.IntParam.LazyConstraints, 1);
+			//model.setCallback(this);
 
 			// Integrate new variables
 			model.update();
@@ -635,17 +494,6 @@ public class LiteratureModel extends GRBCallback {
 			this.addConstraint2(model);
 
 			this.addConstraint3(model);
-
-			this.addConstraint4(model);
-
-			this.addConstraint5(model);
-			
-			this.addConstraint6(model);
-			
-			this.addConstraint7(model);
-			
-			this.addConstraint8(model);
-
 
 			model.update();
 
@@ -699,6 +547,49 @@ public class LiteratureModel extends GRBCallback {
 		}
 //		System.out.printf("%d->%d: %s\n", orig.id, dest.id, predecessors);
 //		System.out.printf("%d->%d: %s\n", orig.id, dest.id, path);
+		return path;
+	}
+
+
+	public List<E> getEdgesInPath(E orig, E dest) {
+		
+		List<E> path = new ArrayList<E>();
+		E lca = null;
+		
+		List<E> predecessorsOrig = new ArrayList<E>();
+		E pred = orig;
+		predecessorsOrig.add(pred);
+		while (g.getInEdges(pred.node1).iterator().hasNext()) {
+			pred = g.getInEdges(pred.node1).iterator().next();
+			predecessorsOrig.add(pred);
+		}
+				
+		List<E> predecessorsDest = new ArrayList<E>();
+		pred = dest;
+		predecessorsDest.add(pred);
+		while (g.getInEdges(pred.node1).iterator().hasNext()) {
+			pred = g.getInEdges(pred.node1).iterator().next();
+			predecessorsDest.add(pred);
+		}
+
+		for (E predOrig : predecessorsOrig) {
+			if (predecessorsDest.contains(predOrig)) {
+				lca = predOrig;
+				path.add(0,predOrig); // first edge is the least common ancestor
+				break;
+			}
+			path.add(predOrig); 
+		}
+		
+		if (lca == null) {
+			path.add(0,null);
+		}
+		
+		for (E predDest : predecessorsDest) {
+			if (lca == predDest) break;
+			path.add(predDest);
+		}
+		
 		return path;
 	}
 

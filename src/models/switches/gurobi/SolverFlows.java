@@ -81,6 +81,8 @@ public class SolverFlows extends GRBCallback {
 		try {
 			try {
 				try {
+					
+					System.out.println("Flow Model");
 
 					Reader fileInst = new BufferedReader(new FileReader("instancias.txt"));
 					StreamTokenizer stok = new StreamTokenizer(fileInst);
