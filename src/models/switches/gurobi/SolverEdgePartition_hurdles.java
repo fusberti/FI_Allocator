@@ -877,14 +877,15 @@ public class SolverEdgePartition_hurdles extends GRBCallback {
 				// System.out.println("**** New node integer sol****");
 				// integerSeparation();
 				integerSeparationWithFI_Violation();
-			} else if (where == GRB.CB_MIPNODE) {
-				// MIP node callback
-				//System.out.println("**** New node fractional sol****");
-				if (getIntInfo(GRB.CB_MIPNODE_STATUS) == GRB.OPTIMAL) {
-					fractionalSeparation();
-					// exactFractionalSeparation();
-				}
-			}
+			} 
+//			else if (where == GRB.CB_MIPNODE) {
+//				// MIP node callback
+//				//System.out.println("**** New node fractional sol****");
+//				if (getIntInfo(GRB.CB_MIPNODE_STATUS) == GRB.OPTIMAL) {
+//					fractionalSeparation();
+//					// exactFractionalSeparation();
+//				}
+//			}
 		} catch (GRBException e) {
 			System.out.println("Error code: " + e.getErrorCode() + ". " + e.getMessage());
 			e.printStackTrace();

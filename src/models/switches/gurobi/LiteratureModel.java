@@ -505,52 +505,6 @@ public class LiteratureModel {
 
 	}
 
-	
-	public Collection<E> getEdgesInPath(V orig, V dest) {
-		List<E> path = new ArrayList<E>();
-		E edge = g.findEdge(orig, dest);
-		if ((edge = g.findEdge(orig, dest)) != null || (edge = g.findEdge(dest, orig)) != null) {
-			path.add(edge);
-			return path;
-		}
-		List<V> predecessorsOrig = new ArrayList<V>();
-		List<V> predecessorsDest = new ArrayList<V>();
-		V pred = orig;
-		predecessorsOrig.add(pred);
-		while (g.getPredecessors(pred).iterator().hasNext()) {
-			pred = g.getPredecessors(pred).iterator().next();
-			predecessorsOrig.add(pred);
-		}
-
-		predecessorsDest.add(dest);
-		int idx = predecessorsOrig.indexOf(dest);
-		pred = dest;
-		while (g.getPredecessors(pred).iterator().hasNext() && idx < 0) {
-			pred = g.getPredecessors(pred).iterator().next();
-			idx = predecessorsOrig.indexOf(pred);
-			predecessorsDest.add(pred);
-		}
-		List<V> predecessors;
-		predecessors = new ArrayList<V>(predecessorsOrig.subList(0, idx + 1));
-		ListIterator<V> iterPred = predecessorsDest.listIterator(predecessorsDest.size() - 1);
-		while (iterPred.hasPrevious()) {
-			predecessors.add(iterPred.previous());
-		}
-		Iterator<V> iter = predecessors.iterator();
-		V next, start = iter.next();
-		while (iter.hasNext()) {
-			next = iter.next();
-			edge = g.findEdge(start, next);
-			if (edge == null)
-				path.add(g.findEdge(next, start));
-			else
-				path.add(edge);
-			start = next;
-		}
-//		System.out.printf("%d->%d: %s\n", orig.id, dest.id, predecessors);
-//		System.out.printf("%d->%d: %s\n", orig.id, dest.id, path);
-		return path;
-	}
 
 
 	public List<E> getEdgesInPath(E orig, E dest) {
