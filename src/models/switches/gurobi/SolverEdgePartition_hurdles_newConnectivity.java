@@ -21,12 +21,15 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.ListIterator;
 import java.util.Locale;
+import java.util.Stack;
 
 import edu.uci.ics.jung.graph.Graph;
+import edu.uci.ics.jung.graph.util.Pair;
 import gurobi.GRB;
 import gurobi.GRBCallback;
 import gurobi.GRBEnv;
@@ -65,6 +68,7 @@ public class SolverEdgePartition_hurdles_newConnectivity extends GRBCallback {
 	public static GRBEnv env;
 	public static GRBModel model;
 	public GRBVar[] x[], h[], Sum;
+	public static HashMap<Integer,ArrayList<E>> Paths = new HashMap<Integer,ArrayList<E>>();
 
 	private int edgeGroup[];
 	private boolean visitedEdges[];
@@ -554,6 +558,22 @@ public class SolverEdgePartition_hurdles_newConnectivity extends GRBCallback {
 		try {
 
 			GRBQuadExpr ofexpr = new GRBQuadExpr();
+			
+			// creating path between all pairs of edges
+			Iterator<E> iterEdges1 = g.getEdges().iterator();
+			while (iterEdges1.hasNext()) {
+				E edge1 = iterEdges1.next();
+				Iterator<E> iterEdges2 = g.getEdges().iterator();
+				while (iterEdges2.hasNext()) {
+					E edge2 = iterEdges2.next();
+					if (edge1 != edge2) {
+						//Pair<E> edgePair = new Pair<E>(edge1,edge2);
+						ArrayList<E> path = (ArrayList<E>) getEdgesInPath(edge1,edge2);
+						Paths.put(edge1.id*g.getEdgeCount()+edge2.id, path);
+					}
+				}
+			}
+			
 
 			// Create variables
 			this.defineVarX(model, 0, ofexpr);
@@ -678,14 +698,17 @@ public class SolverEdgePartition_hurdles_newConnectivity extends GRBCallback {
 				// inserir restricao
 				if (edgeC != null) {
 					
-					ArrayList<E> path = (ArrayList<E>) getEdgesInPath(edgeA,edgeC);
+					//ArrayList<E> path = (ArrayList<E>) getEdgesInPath(edgeA,edgeC);
+					//Pair<E> edgePair = new Pair<E>(edgeA,edgeC);
+					ArrayList<E> path = Paths.get(edgeA.id*g.getEdgeCount()+edgeC.id);
+					if (path == null) continue;
 					E lca = path.get(0);
 					
 					iterEdges = path.iterator();
 					
 					while (iterEdges.hasNext()) {
 						E edgeB = iterEdges.next();
-						if (edgeGroup[edgeB.id] == k || edgeB == lca || edgeB == edgeA || edgeB == edgeC)
+						if ((x_val[edgeB.id][k] > 0.5) || edgeGroup[edgeB.id] == k || edgeB == lca || edgeB == edgeA || edgeB == edgeC)
 							continue;
 						GRBLinExpr constraint = new GRBLinExpr();
 						constraint.addTerm(1, x[edgeA.id][k]);
@@ -775,64 +798,6 @@ public class SolverEdgePartition_hurdles_newConnectivity extends GRBCallback {
 
 	}
 
-	private void exactFractionalSeparation() throws GRBException, IOException {
-		// Found a fractional solution - does any connectivity constraint violated?
-		visitedEdges = new boolean[g.getEdgeCount()];
-		edgeGroup = new int[g.getEdgeCount()];
-
-		double[][] x_val = getNodeRel(x);
-
-		Iterator<E> iterEdges;
-
-//		iterEdges = g.getEdges().iterator();
-//		while (iterEdges.hasNext()) {
-//			E edge = iterEdges.next();
-//			double maxVal = -1.0f;
-//			for (int k = 0; k <= inst.parameters.getNumFI(); k++) {
-//				if (x_val[edge.id][k] > maxVal) {
-//					edgeGroup[edge.id] = k;
-//					maxVal = x_val[edge.id][k];
-//				}
-//			}
-//		}
-
-		Iterator<E> iterEdgesA = g.getEdges().iterator();
-		while (iterEdgesA.hasNext()) {
-			E edgeA = iterEdgesA.next();
-			visitedEdges[edgeA.id] = true;
-			int k = edgeGroup[edgeA.id];
-			Iterator<E> iterEdgesC = g.getEdges().iterator();
-			while (iterEdgesC.hasNext()) {
-				E edgeC = iterEdgesC.next();
-				if (edgeGroup[edgeC.id] == k && !visitedEdges[edgeC.id]) {
-					//if (x_val[edgeA.id][k] + x_val[edgeC.id][k] <= 1.0f) {
-					if (x_val[edgeA.id][k] + x_val[edgeC.id][k] >= 1.5f) {
-						ArrayList<E> path = (ArrayList<E>) getEdgesInPath(edgeA,edgeC);
-						E lca = path.get(0);
-						
-						Iterator<E> iterEdgesB = path.iterator();
-						while (iterEdgesB.hasNext()) {
-							E edgeB = iterEdgesB.next();
-							if (edgeB == lca || edgeB == edgeA || edgeB == edgeC
-									|| (x_val[edgeA.id][k] + x_val[edgeC.id][k] <= 1 + x_val[edgeB.id][k]))
-								continue;
-							//System.out.println("inserted");
-							GRBLinExpr constraint = new GRBLinExpr();
-							constraint.addTerm(1, x[edgeA.id][k]);
-							constraint.addTerm(1, x[edgeC.id][k]);
-							constraint.addTerm(-1, x[edgeB.id][k]);
-							addLazy(constraint, GRB.LESS_EQUAL, 1); // ,
-							// "c1_lazy_"+edgeA.id+","+edgeB.id+","+edgeC.id+","+k);
-							//logfile.write(count++ + ": c1f_lazy_" + edgeA.id + "," + edgeB.id + "," + edgeC.id + "," + k
-								//	+ "\n");
-						}
-					}
-				}
-			}
-		}
-
-	}
-
 	private void fractionalSeparation() throws GRBException, IOException {
 		// Found a fractional solution - does any connectivity constraint violated?
 		visitedEdges = new boolean[g.getEdgeCount()];
@@ -899,7 +864,10 @@ public class SolverEdgePartition_hurdles_newConnectivity extends GRBCallback {
 				// inserir restricao
 				if (edgeC != null) {
 					//iterEdges = getEdgesInPath(edgeA.node1, edgeC.node1).iterator();
-					ArrayList<E> path = (ArrayList<E>) getEdgesInPath(edgeA,edgeC);
+					//ArrayList<E> path = (ArrayList<E>) getEdgesInPath(edgeA,edgeC);
+					//Pair<E> edgePair = new Pair<E>(edgeA,edgeC);
+					ArrayList<E> path = Paths.get(edgeA.id*g.getEdgeCount()+edgeC.id);
+					if (path == null) continue;
 					E lca = path.get(0);
 					
 					iterEdges = path.iterator();
@@ -924,6 +892,170 @@ public class SolverEdgePartition_hurdles_newConnectivity extends GRBCallback {
 			}
 		}
 	}
+	
+	private void fractionalSeparation2() throws GRBException, IOException {
+		// Found a fractional solution - does any connectivity constraint violated?
+		visitedEdges = new boolean[g.getEdgeCount()];
+		// E firstInGroup[] = new E[inst.getParameters().getNumFI() + 1];
+		E maxEdgeInGroup[] = new E[inst.getParameters().getNumFI() + 1];
+		E maxEdgeInGroupOutDFS[] = new E[inst.getParameters().getNumFI() + 1];
+		edgeGroup = new int[g.getEdgeCount()];
+
+		double[][] x_val = getNodeRel(x);
+
+		Iterator<E> iterEdges = g.getEdges().iterator();;
+		
+		while (iterEdges.hasNext()) {
+			E edge = iterEdges.next();
+			for (int k = 0; k <= inst.parameters.getNumFI(); k++) {
+				double maxVal = -1.0;
+				if (x_val[edge.id][k] > maxVal) {
+					maxEdgeInGroup[k] = edge;
+					edgeGroup[edge.id]= k; 
+					maxVal = x_val[edge.id][k];
+				}
+			}
+		}
+		
+
+
+		for (int k = 0; k <= inst.parameters.getNumFI(); k++) {
+
+			Arrays.fill(visitedEdges, false);
+
+			E edgeA = maxEdgeInGroup[k];
+			if (edgeA != null) {
+				V root = edgeA.node1;
+
+				// DFS no grupo k
+				checkConnectivity(root, k);
+
+				// escolher a aresta do grupo k não foi visitada pela DFS com maior valor de
+				// x_val
+				iterEdges = g.getEdges().iterator();
+				E edgeC = null;
+				double maxVal = -1.0;
+				while (iterEdges.hasNext()) {
+					E edge = iterEdges.next();
+					if (edgeGroup[edge.id] == k && !visitedEdges[edge.id] && x_val[edge.id][k] > maxVal) {
+						maxEdgeInGroupOutDFS[k] = edge;
+						maxVal = x_val[edge.id][k];
+					}
+				}
+				edgeC = maxEdgeInGroupOutDFS[k];
+				// inserir restricao
+				if (edgeC != null) {
+					//iterEdges = getEdgesInPath(edgeA.node1, edgeC.node1).iterator();
+					//ArrayList<E> path = (ArrayList<E>) getEdgesInPath(edgeA,edgeC);
+					//Pair<E> edgePair = new Pair<E>(edgeA,edgeC);
+					ArrayList<E> path = Paths.get(edgeA.id*g.getEdgeCount()+edgeC.id);
+					if (path == null) continue;
+					E lca = path.get(0);
+					
+					iterEdges = path.iterator();
+					
+					while (iterEdges.hasNext()) {
+						E edgeB = iterEdges.next();
+						if (edgeB == lca || edgeB == edgeA || edgeB == edgeC
+								|| (x_val[edgeA.id][k] + x_val[edgeC.id][k] <= 1 + x_val[edgeB.id][k]))
+							continue;
+						//System.out.println("cut inserted "+(x_val[edgeA.id][k] + x_val[edgeC.id][k] - 1 - x_val[edgeB.id][k]));
+						GRBLinExpr constraint = new GRBLinExpr();
+						constraint.addTerm(1, x[edgeA.id][k]);
+						constraint.addTerm(1, x[edgeC.id][k]);
+						constraint.addTerm(-1, x[edgeB.id][k]);
+						addLazy(constraint, GRB.LESS_EQUAL, 1); // ,
+																// "c1_lazy_"+edgeA.id+","+edgeB.id+","+edgeC.id+","+k);
+						//logfile.write(
+							//	count++ + ": c1f_lazy_" + edgeA.id + "," + edgeB.id + "," + edgeC.id + "," + k + "\n");
+						break;
+					}
+				}
+			}
+		}
+	}
+	
+	
+	void checkConnectivityFractional3(V root, int k, double x_val[][], E edgeA, E edgeB, E edgeC) throws GRBException {
+
+		E oldEdgeB = edgeB, oldEdgeC = edgeC;
+		Iterator<E> iterEdges = g.getIncidentEdges(root).iterator();
+
+		while (iterEdges.hasNext()) {
+			E edge = iterEdges.next();
+
+			if (!visitedEdges[edge.id]) {
+				if ((edgeB == null) || (x_val[edge.id][k] < x_val[edgeB.id][k])) {
+					edgeB = edge;
+					edgeC = null;
+				} else if ((edgeC == null) || (x_val[edge.id][k] > x_val[edgeC.id][k])) {
+					edgeC = edge;
+				}
+				
+				
+				if (edgeB != null && edgeC != null 
+						&& (x_val[edgeA.id][k] + x_val[edgeC.id][k] > 1 + x_val[edgeB.id][k])) {
+					GRBLinExpr constraint = new GRBLinExpr();
+					constraint.addTerm(1, x[edgeA.id][k]);
+					constraint.addTerm(1, x[edgeC.id][k]);
+					constraint.addTerm(-1, x[edgeB.id][k]);
+					addLazy(constraint, GRB.LESS_EQUAL, 1);
+				}
+				
+				
+				V next = (edge.node1 != root) ? edge.node1 : edge.node2;
+				visitedEdges[edge.id] = true;
+//				if (maxEdgeInGroup[k] != null && x_val[maxEdgeInGroup[k].id][k] < x_val[edge.id][k]) {
+//					maxEdgeInGroup[k] = edge;
+//				}
+				checkConnectivityFractional3(next, k, x_val, edgeA, edgeB, edgeC);
+				
+				edgeB = oldEdgeB;
+				edgeC = oldEdgeC;
+			}
+		}
+
+	}
+	
+	
+	private void fractionalSeparation3() throws GRBException, IOException {
+		// Found a fractional solution - does any connectivity constraint violated?
+		visitedEdges = new boolean[g.getEdgeCount()];
+		// E firstInGroup[] = new E[inst.getParameters().getNumFI() + 1];
+		E maxEdgeInGroup[] = new E[inst.getParameters().getNumFI() + 1];
+		E edgeB = null, edgeC = null;
+
+		double[][] x_val = getNodeRel(x);
+
+		Iterator<E> iterEdges;
+		
+		for (int k = 0; k <= inst.parameters.getNumFI(); k++) {
+			double maxVal = -1.0;
+			iterEdges = g.getEdges().iterator();
+			while (iterEdges.hasNext()) {
+				E edge = iterEdges.next();
+				if (x_val[edge.id][k] > maxVal) {
+					maxEdgeInGroup[k] = edge;
+					maxVal = x_val[edge.id][k];
+				}
+			}
+		}
+
+		for (int k = 0; k <= inst.parameters.getNumFI(); k++) {
+
+			Arrays.fill(visitedEdges, false);
+
+			E edgeA = maxEdgeInGroup[k];
+			if (edgeA != null) {
+				V root = edgeA.node1;
+
+				// DFS no grupo k
+				checkConnectivityFractional3(root, k, x_val, edgeA, edgeB, edgeC);
+
+			}
+		}
+	}
+	
 
 	@Override
 	protected void callback() {
@@ -937,6 +1069,7 @@ public class SolverEdgePartition_hurdles_newConnectivity extends GRBCallback {
 				//System.out.println("**** New node fractional sol****");
 				if (getIntInfo(GRB.CB_MIPNODE_STATUS) == GRB.OPTIMAL) {
 					fractionalSeparation();
+					//fractionalSeparation3();
 					// exactFractionalSeparation();
 				}
 			}
